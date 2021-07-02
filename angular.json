@@ -119,6 +119,10 @@
           }
         }
       }
-    }},
-  "defaultProject": "barcode-scanner"
+    }
+  },
+  "defaultProject": "barcode-scanner",
+  "cli": {
+    "analytics": false
+  }
 }
