@@ -2,7 +2,7 @@ import { Component, ViewChild, ElementRef, OnInit, AfterViewInit } from '@angula
 
 let skipLinesConst = 20;
 
-const threshold = 150;
+const threshold = 100;
 
 @Component({
   selector: 'app-root',
@@ -103,31 +103,312 @@ adjacent = tan(a) * height / 2
 
     const start = Date.now();
 
+    const scans = [];
+
     for (let a = 0; a < 180; a += 4) {
+      const slice = {
+        angle: a,
+        found: [],
+      };
+      const tracker = {
+        t: [],
+        prev: null,
+        // prevP: 0,
+        expectedLength: 0,
+      };
+
       const params = this.getIterationParams(a);
 
       for (let p = 0; p < params.length; p++) {
         const i = params.getIndex(p, this.step);
-        if (p < 10) {
-          toGreen(this.data, i);
+
+        if (p === 0) {
+          tracker.prev = getAverage(this.data, i) < threshold ? 0 : 1;
+          if (tracker.prev) {
+            tracker.t[0] = {
+              // startP: 0,
+              start: 0,
+              current: true,
+            };
+          }
         }
         else {
-          toRed(this.data, i);
+          this.processPoint(slice, tracker, p, i);
         }
+
+
+        // if (p < 10) {
+        //   toGreen(this.data, i);
+        // }
+        // else {
+        //   toRed(this.data, i);
+        // }
+      }
+
+      if (slice.found.length) {
+        scans.push(slice);
       }
     }
 
     const end = Date.now();
     console.log('time:', end - start);
 
+
+    for (let slice of scans) {
+      this.drawSlice(slice);
+    }
+
+
+
+
+
     this.ctx.putImageData(this.image, 0, 0);
+
+    // console.log(scans);
 
   }
 
-  getIndex(x, y) {
-    let X = x * 4;
-    let Y = y * this.step;
-    return Y + X;
+  drawSlice(slice) {
+    const params = this.getIterationParams(slice.angle);
+
+    let colorCount = 0;
+
+    for (let marker of slice.found) {
+      if (colorCount > 1) colorCount = 0;
+
+      let start  = marker[1].start;
+      if (marker[0].valid) {
+        start = marker[0].start;
+      }
+      let end = marker[3].start + marker[3].length;
+      if (marker[4]) {
+        end = marker[4].start + marker[4].length;
+      }
+      // const length = end - start;
+      // const percent = 0.1;
+      // const head = length * percent < 3 ? 3 : Math.floor(length * percent);
+
+      for (let p = start; p < end; p++) {
+        const i = params.getIndex(p, this.step);
+
+        // if (p - start <= head) {
+        //   toGreen(this.data, i);
+        // }
+        // else {
+        //   toRed(this.data, i);
+        // }
+
+        if (colorCount === 0) {
+          // toGreen(this.data, i);
+          toRed(this.data, i);
+        }
+        else {
+          toRed(this.data, i);
+        }
+      }
+      colorCount++;
+    }
+  }
+
+  processPoint(slice, tracker, p, i) {
+    let val = getAverage(this.data, i);
+    val = val < threshold ? 0 : 1;
+    // val = val.toString(16).padStart(2, '0');
+    // slice.push(val);
+    // slice.push({
+    //   color: '#' + getColor(i) + getColor(i + 1) + getColor(i + 2),
+    //   gray: '#' + val + val + val,
+    //   o: getValue(data, i),
+    // });
+
+
+    const th = threshold;
+    const err = 0.3;
+    // let res = [];
+    // let prev = slice[0].o < th ? 0 : 1;
+    // let expectedLength = 0;
+
+    function getErr(expectedLength) {
+      const max = 0.5;
+      const min = 0.1;
+      let comp = 2 / Math.log(2 + expectedLength);
+      comp = comp > max ? max : comp;
+      comp = comp < min ? min : comp;
+
+      const err = expectedLength * comp;
+      // console.log('ERROR', expectedLength, Number(comp.toFixed(2)), Number(err.toFixed(2)));
+      return err;
+    }
+
+    // let t = [];
+    // if (prev) {
+    //   t[0] = {
+    //     start: 0,
+    //     current: true,
+    //   };
+    // }
+
+    // for (let p = 1; p < slice.length; p++) {
+    //   const val = slice[p].o < th ? 0 : 1;
+
+    if (!tracker.t[0]) {
+      if (!tracker.prev && val) {
+        tracker.t[0] = {
+          start: p,
+          current: true,
+        };
+      }
+      tracker.prev = val;
+      return;
+    }
+
+    if (tracker.t[0] && tracker.t[0].current) { // white
+      if (val) return;
+
+      tracker.t[0].length = p - tracker.t[0].start;
+      tracker.t[0].current = false;
+      tracker.t[1] = {
+        start: p,
+        current: true,
+      };
+      tracker.prev = val;
+      return;
+    }
+    if (tracker.t[1] && tracker.t[1].current) { // balck
+      if (!val) return;
+
+      tracker.t[1].current = false;
+      tracker.t[1].length = p - tracker.t[1].start;
+      tracker.expectedLength = tracker.t[1].length;
+      tracker.t[2] = {
+        start: p,
+        current: true,
+      };
+      tracker.prev = val;
+      return;
+    }
+    if (tracker.t[2] && tracker.t[2].current) { // white space
+      if (val) return;
+
+      tracker.t[2].current = false;
+      tracker.t[2].length = p - tracker.t[2].start;
+      const diff = Math.abs(tracker.expectedLength - tracker.t[2].length);
+      const maxErr = getErr(tracker.expectedLength);
+
+      if (diff > maxErr) {
+        tracker.t = [
+          tracker.t[2],
+          {
+            start: p,
+            current: true,
+          },
+        ];
+        tracker.expectedLength = null;
+        tracker.prev = val;
+        return;
+      }
+
+      // expectedLength = (tracker.t[2].length + tracker.t[1].length) / 2;
+      tracker.t[2].current = false;
+      tracker.t[3] = {
+        start: p,
+        current: true,
+      };
+      tracker.prev = val;
+      return;
+    }
+    if (tracker.t[3] && tracker.t[3].current) { // black
+      if (!val) return;
+
+      tracker.t[3].current = false;
+      tracker.t[3].length = p - tracker.t[3].start;
+      const diff = Math.abs(tracker.expectedLength - tracker.t[3].length);
+      const maxErr = getErr(tracker.expectedLength);
+
+      if (diff > maxErr) {
+        tracker.expectedLength = tracker.t[3].length;
+        tracker.t = [
+          tracker.t[2],
+          tracker.t[3],
+          {
+            start: p,
+            current: true,
+          },
+        ];
+        tracker.prev = val;
+        return;
+      }
+      const expectedQuietZone = (tracker.t[1].length + tracker.t[2].length + tracker.t[3].length) * 3;
+      const quietZoneErr = getErr(expectedQuietZone);
+      const quietZoneDiff = Math.abs(tracker.t[0].length - expectedQuietZone);
+      // console.log('--GOT 3', t)
+      // console.log('expected', expectedQuietZone)
+      // console.log('err', quietZoneErr)
+      // console.log('diff', quietZoneDiff)
+
+      if (tracker.t[0].length < (expectedQuietZone - quietZoneErr)) {
+        tracker.t[0].valid = false;
+        tracker.t[4] = {
+          start: p,
+          current: true,
+        };
+        tracker.prev = val;
+        return;
+      }
+      tracker.t[0].valid = true;
+
+      slice.found.push(tracker.t);
+      tracker.prev = val;
+
+      tracker.t = [{
+        start: p,
+        current: true,
+      }];
+      tracker.expectedLength = null;
+      tracker.prev = val;
+
+      return;
+    }
+    if (tracker.t[4] && tracker.t[4].current) { // white
+      if (val) return;
+
+      tracker.t[4].current = false;
+      tracker.t[4].length = p - tracker.t[4].start;
+
+      const expectedQuietZone = (tracker.t[1].length + tracker.t[2].length + tracker.t[3].length) * 3;
+      const quietZoneErr = getErr(expectedQuietZone);
+      const quietZoneDiff = Math.abs(tracker.t[4].length - expectedQuietZone);
+
+      if (tracker.t[4].length < (expectedQuietZone - quietZoneErr)) {
+        tracker.expectedLength = null;
+        tracker.t = [
+          tracker.t[4],
+          {
+            start: p,
+            current: true,
+          },
+        ];
+        tracker.prev = val;
+        return;
+      }
+
+      slice.found.push(tracker.t);
+
+      tracker.t = [
+        tracker.t[4],
+        {
+          start: p,
+          current: true,
+        },
+      ];
+      tracker.expectedLength = null;
+      tracker.prev = val;
+
+      return;
+    }
+
+    // }
+    // return res;
   }
 
   getIterationParams(angle) {
@@ -1716,6 +1997,10 @@ function findEdges(line, min, max, refDim, lineIndex, midW, midH, radius, step) 
     }
   }
   return edges;
+}
+
+function getAverage(data, i) {
+  return Math.floor((data[i] + data[i + 1] + data[i + 2]) / 3);
 }
 
 function getValue(data, i) {
