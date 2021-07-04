@@ -29,6 +29,19 @@ export class AppComponent implements OnInit, AfterViewInit{
 
   slice = [];
 
+
+  H;
+  W;
+  step;
+  image;
+  data;
+  inflection;
+  negInflection;
+  radians = 180 / Math.PI;
+  angleStep = 3;
+
+
+
   @ViewChild('canvas') canvas: ElementRef<HTMLCanvasElement>;
   @ViewChild('canvas2') canvas2: ElementRef<HTMLCanvasElement>;
   ctx: CanvasRenderingContext2D;
@@ -47,6 +60,176 @@ export class AppComponent implements OnInit, AfterViewInit{
     this.vcanvas = document.createElement('canvas');
     this.vctx = this.vcanvas.getContext('2d');
     this.vctx.save();
+
+    this.load();
+  }
+
+  rIterator() {
+
+
+    const H = this.H = this.ctx.canvas.height;
+    const W = this.W = this.ctx.canvas.width;
+    this.inflection = Math.atan(this.H / this.W) * this.radians;
+    this.negInflection = this.inflection - 180;
+
+    this.image = this.ctx.getImageData(0, 0, this.W, this.H);
+    this.data = this.image.data;
+    this.step = this.W * 4;
+
+
+
+    //         /| ^ +
+    //       /  |
+    //     /    | opposite: tan(a) = oppposite / adjacent; a = tan-1(o / a)
+    //   /a     |
+    // /________| 0
+    // adjacent
+
+    // opposite = tan(a) * adjacent;
+    // adjacent = width / 2;
+    // opposite = tan(a) * width / 2
+
+
+
+    // adjacent = opposite / tan(a)
+    // opposite = height / 2
+    // adjacent = tan(a) * height / 2
+
+    // @ a = 0, H = 0, W = width
+    // @ -inflection <= a <= +inflection: W = width, H = variable
+    // @ +inflection - 180 <= a <= -inflection: H = height, W = variable
+
+    console.log('height', this.H, 'width', this.W, 'w / 2', this.midW, 'h / 2', this.midH, 'inflection angle', this.inflection);
+
+
+    const start = Date.now();
+
+    let a = this.inflection;
+    // const angleStep = 3;
+    for (; a > -this.inflection; a -= this.angleStep) {
+      let maxH = Math.tan(a / this.radians) * this.midW;
+      maxH = Math.floor(maxH);
+      // console.log('1 angle:', a.toFixed(2), 'max H', maxH);
+      this.getLine(this.midW, maxH, a);
+    }
+    for (; a > this.negInflection; a -= this.angleStep) {
+      let maxW = Math.tan((a + 90) / this.radians) * this.midH;
+      maxW = Math.floor(maxW);
+      // console.log('2 angle:', a.toFixed(2), 'max W', maxW);
+      this.getLine(maxW, -this.midH, a);
+    }
+
+    const end = Date.now();
+    console.log('time:', end - start);
+
+    this.ctx.putImageData(this.image, 0, 0);
+
+  }
+
+  getLine(maxW, maxH, angle) {
+    angle = angle.toFixed(2);
+    // console.log('------', angle)
+
+    const x0 = this.midW - maxW;
+    const y0 = this.midH - maxH;
+    const xEnd = this.W - x0;
+    const yEnd = this.H - y0;
+
+    const xDir = x0 <= this.midW ? 1 : -1;
+    const yDir = y0 <= this.midH ? 1 : -1;
+
+    const xLength = Math.abs(xEnd - x0);
+    const yLength = Math.abs(yEnd - y0);
+
+    const xStep = xLength / yLength;
+    const yStep = yLength / xLength;
+
+    if (xLength >= yLength) {
+      for (let x = 0; x  < xLength; x++) {
+        const X = x0 + x * xDir;
+        const y = x * yStep;
+        const Y = Math.floor(y0 + y * yDir);
+
+        paintPixel(this.data, this.step, X, Y);
+      }
+
+    }
+    else {
+      for (let y = 0; y  < yLength; y++) {
+        const Y = y0 + y * yDir;
+        const x = y * xStep;
+        const X = Math.floor(x0 + x * xDir);
+
+        paintPixel(this.data, this.step, X, Y);
+      }
+    }
+
+    function paintPixel(data, step, x, y) {
+      let Y = y * step;
+      let X = x * 4;
+      const i = Y + X;
+
+      toRed(data, i);
+    }
+  }
+
+  load() {
+    let loaded: any = localStorage.getItem('image');
+    loaded = JSON.parse(loaded);
+
+    this.ctx.canvas.width = loaded.width;
+    this.ctx.canvas.height = loaded.height;
+    this.midW = Math.floor(loaded.width / 2);
+    this.midH = Math.floor(loaded.height / 2);
+    this.radius = Math.min(this.midW, this.midH);
+    // const image = this.ctx.getImageData(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
+    const image = new ImageData(loaded.width, loaded.height);
+
+    const data = image.data;
+    console.log('Data Length', data.length);
+
+    let count = 0;
+
+    for (let i = 0, r = 0; i < data.length; i += 4, r++) {
+
+      // if (count < 10) {
+      //   console.log(data[i], data[i + 1], data[i + 2])
+      //   // console.log(loaded.data[r])
+      // }
+      data[i] = loaded.data[r];
+      data[i + 1] = loaded.data[r];
+      data[i + 2] = loaded.data[r];
+      data[i + 3] = 255;
+
+      count++;
+    }
+    createImageBitmap(image).then((data) => {
+      this.originalImage = data;
+    });
+
+    this.ctx.putImageData(image, 0, 0);
+  }
+
+  save() {
+    const image = this.ctx.getImageData(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
+    const step = image.width * 4;
+    const data = image.data;
+
+    const res = {
+      width: this.ctx.canvas.width,
+      height: this.ctx.canvas.height,
+      data: [],
+    };
+    let count = 0;
+
+
+    for (let i = 0; i < data.length; i += 4) {
+      // if (count > 100) break;
+      const val = toGray(data, i);
+      res.data.push(val);
+      count++;
+    }
+    localStorage.setItem('image', JSON.stringify(res));
   }
 
   log(value) {
@@ -140,8 +323,14 @@ export class AppComponent implements OnInit, AfterViewInit{
     let colorCount = 0;
     for (let s of res) {
       if (colorCount > 1) colorCount = 0;
-      const start  = s[0].start;
-      const end = s[2].start + s[2].length;
+      let start  = s[1].start;
+      if (s[0].valid) {
+        start = s[0].start;
+      }
+      let end = s[3].start + s[3].length;
+      if (s[4]) {
+        end = s[4].start + s[4].length;
+      }
       // console.log('start', start, 'end', end);
       for (let i = this.midW * 4 + step * start; i < this.midW * 4 + step * end; i += step) {
         // console.log(data[i]);
@@ -178,11 +367,11 @@ export class AppComponent implements OnInit, AfterViewInit{
     let next = 0;
     let expectedLength = 0;
 
-    function getErr() {
+    function getErr(expectedLength) {
       const max = 0.5;
       const min = 0.1;
       // let comp = 1 / expectedLength * 1.5;
-      let comp = 0.75 / Math.log(2 + expectedLength);
+      let comp = 2 / Math.log(2 + expectedLength);
       comp = comp > max ? max : comp;
       comp = comp < min ? min : comp;
 
@@ -192,12 +381,18 @@ export class AppComponent implements OnInit, AfterViewInit{
     }
 
     let t = [];
+    if (prev) {
+      t[0] = {
+        start: 0,
+        current: true,
+      };
+    }
 
     for (let p = 1; p < slice.length; p++) {
       const val = slice[p].o < th ? 0 : 1;
 
       if (!t[0]) {
-        if (prev && !val) {
+        if (!prev && val) {
           t[0] = {
             start: p,
             current: true,
@@ -206,100 +401,149 @@ export class AppComponent implements OnInit, AfterViewInit{
         prev = val;
         continue;
       }
-      if (t[0] && t[0].current) {
-        if (prev === val) {
-          continue;
-        }
-        else {
-          t[0].length = p - t[0].start;
-          expectedLength = t[0].length;
-          t[0].current = false;
-          t[1] = {
-            start: p,
-            current: true,
-          };
-          prev = val;
-          continue;
-        }
-      }
-      if (t[1] && t[1].current) {
-        if (prev === val) {
-          continue;
-        }
-        else {
-          t[1].length = p - t[1].start;
-          const diff = Math.abs(expectedLength - t[1].length);
-          const maxErr = getErr();
-          // const maxErr = 1 / expectedLength;
-          // const maxErr = expectedLength * err;
 
-          if (diff > maxErr) {
-            // console.log('diff over', diff, maxErr)
-          // if (diff > expectedLength + maxErr || diff < expectedLength - maxErr) {
-            t = [];
-            t[0] = {
+      if (t[0] && t[0].current) { // white
+        if (val) continue;
+
+        t[0].length = p - t[0].start;
+        t[0].current = false;
+        t[1] = {
+          start: p,
+          current: true,
+        };
+        prev = val;
+        continue;
+      }
+      if (t[1] && t[1].current) { // balck
+        if (!val) continue;
+
+        t[1].current = false;
+        t[1].length = p - t[1].start;
+        expectedLength = t[1].length;
+        t[2] = {
+          start: p,
+          current: true,
+        };
+        prev = val;
+        continue;
+      }
+      if (t[2] && t[2].current) { // white space
+        if (val) continue;
+
+        t[2].current = false;
+        t[2].length = p - t[2].start;
+        const diff = Math.abs(expectedLength - t[2].length);
+        const maxErr = getErr(expectedLength);
+
+        if (diff > maxErr) {
+          t = [
+            t[2],
+            {
               start: p,
               current: true,
-            };
-            expectedLength = null;
-            prev = val;
-            continue;
-          }
-
-          expectedLength = (t[1].length + t[0].length) / 2;
-          t[1].current = false;
-          t[2] = {
-            start: p,
-            current: true,
-          };
+            },
+          ];
+          expectedLength = null;
           prev = val;
           continue;
         }
-      }
-      if (t[2] && t[2].current) {
-        if (prev === val) {
-          continue;
-        }
-        else {
-          t[2].length = p - t[2].start;
-          const diff = Math.abs(expectedLength - t[2].length);
-          const maxErr = getErr();
-          // const maxErr = 1 / expectedLength;
-          // const maxErr = expectedLength * err;
 
-          if (diff > maxErr) {
-            const newStart = {
-              start: t[2].start,
-              current: false,
-              length: t[2].length,
-            };
-            expectedLength = t[2].length;
-            t = [newStart];
-            t[1] = {
+        // expectedLength = (t[2].length + t[1].length) / 2;
+        t[2].current = false;
+        t[3] = {
+          start: p,
+          current: true,
+        };
+        prev = val;
+        continue;
+      }
+      if (t[3] && t[3].current) { // black
+        if (!val) continue;
+
+        t[3].current = false;
+        t[3].length = p - t[3].start;
+        const diff = Math.abs(expectedLength - t[3].length);
+        const maxErr = getErr(expectedLength);
+
+        if (diff > maxErr) {
+          expectedLength = t[3].length;
+          t = [
+            t[2],
+            t[3],
+            {
               start: p,
               current: true,
-            };
-            prev = val;
-            continue;
-          }
-
-          res.push(t);
-          // expectedLength = null;
+            },
+          ];
           prev = val;
-          const newStart = {
-            start: t[2].start,
-            current: false,
-            length: t[2].length,
-          };
-          expectedLength = t[2].length;
-          t = [newStart];
-          t[1] = {
+          continue;
+        }
+        const expectedQuietZone = (t[1].length + t[2].length + t[3].length) * 3;
+        const quietZoneErr = getErr(expectedQuietZone);
+        const quietZoneDiff = Math.abs(t[0].length - expectedQuietZone);
+        // console.log('--GOT 3', t)
+        // console.log('expected', expectedQuietZone)
+        // console.log('err', quietZoneErr)
+        // console.log('diff', quietZoneDiff)
+
+        if (t[0].length < (expectedQuietZone - quietZoneErr)) {
+          t[0].valid = false;
+          t[4] = {
             start: p,
             current: true,
           };
-          // t = [];
+          prev = val;
           continue;
         }
+        t[0].valid = true;
+        res.push(t);
+        prev = val;
+
+        t = [{
+          start: p,
+          current: true,
+        }];
+        expectedLength = null;
+        prev = val;
+
+        continue;
+      }
+      if (t[4] && t[4].current) { // white
+        if (val) continue;
+
+        t[4].current = false;
+        t[4].length = p - t[4].start;
+
+        const expectedQuietZone = (t[1].length + t[2].length + t[3].length) * 3;
+        const quietZoneErr = getErr(expectedQuietZone);
+        const quietZoneDiff = Math.abs(t[4].length - expectedQuietZone);
+
+        if (t[4].length < (expectedQuietZone - quietZoneErr)) {
+          expectedLength = null;
+          t = [
+            t[4],
+            {
+              start: p,
+              current: true,
+            },
+          ];
+          prev = val;
+          continue;
+        }
+
+        res.push(t);
+
+        t = [
+          t[4],
+          {
+            start: p,
+            current: true,
+          },
+        ];
+        expectedLength = null;
+        prev = val;
+
+        continue;
       }
 
     }
@@ -1434,4 +1678,5 @@ function toGray(data, i) {
   data[i] = avg; // red
   data[i + 1] = avg; // green
   data[i + 2] = avg; // blue
+  return Math.floor(avg);
 }

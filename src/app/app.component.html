@@ -57,3 +57,9 @@
 <div style="display: flex; height: 10px;">
   <span *ngFor="let s of slice; index as i" [style.backgroundColor]="s.gray" style="height: 10px;" [style.width.%]="100/slice.length" title="{{i}}"></span>
 </div>
+<button type="button" (click)="save()">
+  save
+</button>
+<button type="button" (click)="rIterator()">
+  rotating iterator
+</button>
