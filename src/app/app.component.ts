@@ -67,8 +67,8 @@ export class AppComponent implements OnInit, AfterViewInit{
   rIterator() {
 
 
-    const H = this.H = this.ctx.canvas.height;
-    const W = this.W = this.ctx.canvas.width;
+    this.H = this.ctx.canvas.height;
+    this.W = this.ctx.canvas.width;
     this.inflection = Math.atan(this.H / this.W) * this.radians;
     this.negInflection = this.inflection - 180;
 
@@ -77,46 +77,44 @@ export class AppComponent implements OnInit, AfterViewInit{
     this.step = this.W * 4;
 
 
+/*
+        /| ^ +
+      /  |
+    /    | opposite: tan(a) = oppposite / adjacent; a = tan-1(opp / adj)
+  /a     |
+/________| 0
+adjacent
 
-    //         /| ^ +
-    //       /  |
-    //     /    | opposite: tan(a) = oppposite / adjacent; a = tan-1(o / a)
-    //   /a     |
-    // /________| 0
-    // adjacent
+opposite = tan(a) * adjacent;
+adjacent = width / 2;
+opposite = tan(a) * width / 2
 
-    // opposite = tan(a) * adjacent;
-    // adjacent = width / 2;
-    // opposite = tan(a) * width / 2
+adjacent = opposite / tan(a)
+opposite = height / 2
+adjacent = tan(a) * height / 2
 
+@ a = 0, H = 0, W = width
+@ -inflection <= a <= +inflection: W = width, H = variable
+@ +inflection - 180 <= a <= -inflection: H = height, W = variable
 
-
-    // adjacent = opposite / tan(a)
-    // opposite = height / 2
-    // adjacent = tan(a) * height / 2
-
-    // @ a = 0, H = 0, W = width
-    // @ -inflection <= a <= +inflection: W = width, H = variable
-    // @ +inflection - 180 <= a <= -inflection: H = height, W = variable
+*/
 
     console.log('height', this.H, 'width', this.W, 'w / 2', this.midW, 'h / 2', this.midH, 'inflection angle', this.inflection);
 
-
     const start = Date.now();
 
-    let a = this.inflection;
-    // const angleStep = 3;
-    for (; a > -this.inflection; a -= this.angleStep) {
-      let maxH = Math.tan(a / this.radians) * this.midW;
-      maxH = Math.floor(maxH);
-      // console.log('1 angle:', a.toFixed(2), 'max H', maxH);
-      this.getLine(this.midW, maxH, a);
-    }
-    for (; a > this.negInflection; a -= this.angleStep) {
-      let maxW = Math.tan((a + 90) / this.radians) * this.midH;
-      maxW = Math.floor(maxW);
-      // console.log('2 angle:', a.toFixed(2), 'max W', maxW);
-      this.getLine(maxW, -this.midH, a);
+    for (let a = 0; a < 180; a += 4) {
+      const params = this.getIterationParams(a);
+
+      for (let p = 0; p < params.length; p++) {
+        const i = params.getIndex(p, this.step);
+        if (p < 10) {
+          toGreen(this.data, i);
+        }
+        else {
+          toRed(this.data, i);
+        }
+      }
     }
 
     const end = Date.now();
@@ -126,9 +124,14 @@ export class AppComponent implements OnInit, AfterViewInit{
 
   }
 
-  getLine(maxW, maxH, angle) {
-    angle = angle.toFixed(2);
-    // console.log('------', angle)
+  getIndex(x, y) {
+    let X = x * 4;
+    let Y = y * this.step;
+    return Y + X;
+  }
+
+  getIterationParams(angle) {
+    const { maxW, maxH } = this.getLimits(angle);
 
     const x0 = this.midW - maxW;
     const y0 = this.midH - maxH;
@@ -144,33 +147,105 @@ export class AppComponent implements OnInit, AfterViewInit{
     const xStep = xLength / yLength;
     const yStep = yLength / xLength;
 
-    if (xLength >= yLength) {
-      for (let x = 0; x  < xLength; x++) {
-        const X = x0 + x * xDir;
-        const y = x * yStep;
-        const Y = Math.floor(y0 + y * yDir);
-
-        paintPixel(this.data, this.step, X, Y);
+    const x = {
+      start: x0,
+      end: xEnd,
+      dir: xDir,
+      length: xLength,
+      step: xStep,
+    };
+    const y = {
+      start: y0,
+      end: yEnd,
+      dir: yDir,
+      length: yLength,
+      step: yStep,
+    };
+    const p = {
+      x,
+      y,
+      length: null,
+      getX: null,
+      getY: null,
+      getIndex(i, step) {
+        const x = this.getX(i);
+        const y = this.getY(i);
+        const X = x * 4;
+        const Y = y * step;
+        return X + Y;
       }
+    };
 
+    if (x.length >= y.length) {
+      p.length = x.length;
+      p.getX = function(i) { return this.x.start + i * this.x.dir; };
+      p.getY = function(i) { return Math.floor(this.y.start + i * this.y.step * this.y.dir); };
     }
     else {
-      for (let y = 0; y  < yLength; y++) {
-        const Y = y0 + y * yDir;
-        const x = y * xStep;
-        const X = Math.floor(x0 + x * xDir);
-
-        paintPixel(this.data, this.step, X, Y);
-      }
+      p.length = y.length;
+      p.getX = function(i) { return Math.floor(this.x.start + i * this.x.step * this.x.dir); };
+      p.getY = function(i) { return this.y.start + i * this.y.dir; };
     }
 
-    function paintPixel(data, step, x, y) {
-      let Y = y * step;
-      let X = x * 4;
-      const i = Y + X;
+    return p;
+  }
 
-      toRed(data, i);
+  getLimits(angle) {
+    // console.log('- - - -')
+    // console.log('W  ', this.W, 'H  ', this.H);
+    // console.log('W/2', this.midW, 'H/2', this.midH);
+    // console.log('angle:', angle);
+    // console.log('inflection', this.inflection);
+    angle = angle % 360;
+    const sign = angle >= 0 ? 1 : -1;
+    if (Math.abs(angle) > 180) {
+      angle = angle - 360 * sign;
     }
+    angle = angle === -180 ? 180 : angle;
+
+    let maxH;
+    let maxW;
+
+    if (-180 < angle && angle <= this.inflection - 180) {
+      // console.log('sector 5');
+
+      maxH = Math.tan((180 - angle) / this.radians) * this.midW;
+      maxH = Math.floor(maxH);
+      maxW = -this.midW;
+    }
+    else if (this.inflection - 180 < angle && angle <= -this.inflection) {
+      // console.log('sector 4');
+
+      maxW = Math.tan((angle + 90) / this.radians) * this.midH;
+      maxW = Math.floor(maxW);
+      maxH = -this.midH;
+    }
+    else if (-this.inflection < angle && angle <= this.inflection) {
+      // console.log('sector 3');
+
+      maxH = Math.tan(angle / this.radians) * this.midW;
+      maxH = Math.floor(maxH);
+      maxW = this.midW;
+    }
+    else if (this.inflection < angle && angle <= -this.inflection + 180) {
+      // console.log('sector 2');
+
+      maxW = Math.tan((90 - angle) / this.radians) * this.midH;
+      maxW = Math.floor(maxW);
+      maxH = this.midH;
+    }
+    else if (-this.inflection + 180 < angle && angle <= 180) {
+      // console.log('sector 1');
+
+      maxH = Math.tan((180 - angle) / this.radians) * this.midW;
+      maxH = Math.floor(maxH);
+      maxW = -this.midW;
+    }
+    else {
+      throw 'Should not happen. Unrecognised angle: ' + angle;
+    }
+    // console.log('angle', angle, 'maxW', maxW, 'maxH', maxH);
+    return { maxW, maxH };
   }
 
   load() {
@@ -179,6 +254,11 @@ export class AppComponent implements OnInit, AfterViewInit{
 
     this.ctx.canvas.width = loaded.width;
     this.ctx.canvas.height = loaded.height;
+
+    this.H = loaded.height;
+    this.W = loaded.width;
+    this.inflection = Math.atan(this.H / this.W) * this.radians;
+
     this.midW = Math.floor(loaded.width / 2);
     this.midH = Math.floor(loaded.height / 2);
     this.radius = Math.min(this.midW, this.midH);
