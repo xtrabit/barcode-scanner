@@ -11,10 +11,24 @@
   <canvas #canvas2></canvas>
 </div>
 <br>
-<!-- {{angle}} -->
+<button type="button" (click)="reloadImage()">clear image</button>
+<button type="button" (click)="save()">save</button>
+<br>
 <input type="number" [(ngModel)]="angle" placeholder="angle">
-<button type="button" (click)="rotate()">
-  rotate
+<button type="button" (click)="rotate()">rotate</button>
+<br>
+angle
+<br>
+from<input type="number" [(ngModel)]="angleInput.from" placeholder="from">
+to<input type="number" [(ngModel)]="angleInput.to" placeholder="to">
+step<input type="number" [(ngModel)]="angleInput.step" placeholder="step">
+<br>
+center
+<br>
+X<input type="number" [(ngModel)]="center.x" placeholder="center X">
+Y<input type="number" [(ngModel)]="center.y" placeholder="center Y">
+<button type="button" (click)="testIterator()">
+  test rotation point
 </button>
 <br>
 {{sliderValue}}
@@ -57,12 +71,6 @@
 <div style="display: flex; height: 10px;">
   <span *ngFor="let s of slice; index as i" [style.backgroundColor]="s.gray" style="height: 10px;" [style.width.%]="100/slice.length" title="{{i}}"></span>
 </div>
-<button type="button" (click)="save()">
-  save
-</button>
 <button type="button" (click)="rIterator()">
-  rotating iterator
-</button>
-<button type="button" (click)="getLimits(angle)">
-  get Limits
+  radial scan
 </button>

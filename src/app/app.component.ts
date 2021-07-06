@@ -1,8 +1,9 @@
 import { Component, ViewChild, ElementRef, OnInit, AfterViewInit } from '@angular/core';
+import test_image1 from '../assets/test_image1.js';
 
 let skipLinesConst = 20;
 
-const threshold = 100;
+const threshold = 150;
 
 @Component({
   selector: 'app-root',
@@ -40,6 +41,17 @@ export class AppComponent implements OnInit, AfterViewInit{
   radians = 180 / Math.PI;
   angleStep = 3;
 
+  // center;
+  center = {
+    x: 0,
+    y: 0,
+  };
+
+  angleInput = {
+    from: 0,
+    to: 180,
+    step: 4,
+  };
 
 
   @ViewChild('canvas') canvas: ElementRef<HTMLCanvasElement>;
@@ -64,13 +76,46 @@ export class AppComponent implements OnInit, AfterViewInit{
     this.load();
   }
 
+  testIterator() {
+    this.H = this.ctx.canvas.height;
+    this.W = this.ctx.canvas.width;
+
+    this.image = this.ctx.getImageData(0, 0, this.W, this.H);
+    this.data = this.image.data;
+    this.step = this.W * 4;
+
+    const gt = this.angleInput.from < this.angleInput.to && this.angleInput.step > 0;
+    const lt = this.angleInput.from > this.angleInput.to && this.angleInput.step < 0;
+
+    if (!gt && !lt) return;
+
+    for (let a = this.angleInput.from; gt ? (a < this.angleInput.to ? true : false) : (a > this.angleInput.to ? true : false); a += this.angleInput.step) {
+
+      const params = this.getIterationParams(a, this.center.x, this.center.y);
+
+      for (let p = 0; p < params.length; p++) {
+        const i = params.getIndex(p, this.step);
+
+        if (p < 10) {
+          toGreen(this.data, i);
+        }
+        else {
+          toRed(this.data, i);
+        }
+      }
+
+    }
+
+    this.ctx.putImageData(this.image, 0, 0);
+  }
+
   rIterator() {
 
 
     this.H = this.ctx.canvas.height;
     this.W = this.ctx.canvas.width;
-    this.inflection = Math.atan(this.H / this.W) * this.radians;
-    this.negInflection = this.inflection - 180;
+    // this.inflection = Math.atan(this.H / this.W) * this.radians;
+    // this.negInflection = this.inflection - 180;
 
     this.image = this.ctx.getImageData(0, 0, this.W, this.H);
     this.data = this.image.data;
@@ -99,7 +144,7 @@ adjacent = tan(a) * height / 2
 
 */
 
-    console.log('height', this.H, 'width', this.W, 'w / 2', this.midW, 'h / 2', this.midH, 'inflection angle', this.inflection);
+    console.log('height', this.H, 'width', this.W, 'w / 2', this.midW, 'h / 2', this.midH);
 
     const start = Date.now();
 
@@ -108,16 +153,16 @@ adjacent = tan(a) * height / 2
     for (let a = 0; a < 180; a += 4) {
       const slice = {
         angle: a,
+        center: this.center,
         found: [],
       };
       const tracker = {
         t: [],
         prev: null,
-        // prevP: 0,
         expectedLength: 0,
       };
 
-      const params = this.getIterationParams(a);
+      const params = this.getIterationParams(a, this.center.x, this.center.y);
 
       for (let p = 0; p < params.length; p++) {
         const i = params.getIndex(p, this.step);
@@ -126,7 +171,6 @@ adjacent = tan(a) * height / 2
           tracker.prev = getAverage(this.data, i) < threshold ? 0 : 1;
           if (tracker.prev) {
             tracker.t[0] = {
-              // startP: 0,
               start: 0,
               current: true,
             };
@@ -135,14 +179,6 @@ adjacent = tan(a) * height / 2
         else {
           this.processPoint(slice, tracker, p, i);
         }
-
-
-        // if (p < 10) {
-        //   toGreen(this.data, i);
-        // }
-        // else {
-        //   toRed(this.data, i);
-        // }
       }
 
       if (slice.found.length) {
@@ -153,23 +189,14 @@ adjacent = tan(a) * height / 2
     const end = Date.now();
     console.log('time:', end - start);
 
-
     for (let slice of scans) {
       this.drawSlice(slice);
     }
-
-
-
-
-
     this.ctx.putImageData(this.image, 0, 0);
-
-    // console.log(scans);
-
   }
 
   drawSlice(slice) {
-    const params = this.getIterationParams(slice.angle);
+    const params = this.getIterationParams(slice.angle, slice.center.x, slice.center.y);
 
     let colorCount = 0;
 
@@ -356,6 +383,8 @@ adjacent = tan(a) * height / 2
         return;
       }
       tracker.t[0].valid = true;
+      const qzLength = expectedQuietZone > tracker.t[0].length ? tracker.t[0].length : expectedQuietZone;
+      tracker.t[0].start = tracker.t[0].start + tracker.t[0].length - expectedQuietZone;
 
       slice.found.push(tracker.t);
       tracker.prev = val;
@@ -411,16 +440,26 @@ adjacent = tan(a) * height / 2
     // return res;
   }
 
-  getIterationParams(angle) {
-    const { maxW, maxH } = this.getLimits(angle);
+  getIterationParams(angle, cX, cY) {
+    cX = cX > this.W ? this.W : cX;
+    cX = cX < 0 ? 0 : cX;
+    cX = Math.floor(cX);
+    cY = cY > this.H ? this.H : cY;
+    cY = cY < 0 ? 0 : cY;
+    cY = Math.floor(cY);
 
-    const x0 = this.midW - maxW;
-    const y0 = this.midH - maxH;
-    const xEnd = this.W - x0;
-    const yEnd = this.H - y0;
+    const limits = this.getLimits(angle, cX, cY);
 
-    const xDir = x0 <= this.midW ? 1 : -1;
-    const yDir = y0 <= this.midH ? 1 : -1;
+    const x0 = cX - limits.x.start;
+    const y0 = cY - limits.y.start;
+    const xEnd = cX + limits.x.end;
+    const yEnd = cY + limits.y.end;
+
+    const xDir = x0 <= cX ? 1 : -1;
+    // xDir = x0 === 0 && cX === 0 ? 1 : xDir;
+    // xDir = x0 === cX && cX === this.W ? -1 : xDir;
+    const yDir = y0 <= cY ? 1 : -1;
+
 
     const xLength = Math.abs(xEnd - x0);
     const yLength = Math.abs(yEnd - y0);
@@ -471,7 +510,23 @@ adjacent = tan(a) * height / 2
     return p;
   }
 
-  getLimits(angle) {
+  getLimits(angle, cX, cY) {
+/*
+        /| ^ +
+      /  |
+    /    | opposite: tan(a) = oppposite / adjacent; a = tan-1(opp / adj)
+  /a     |           tan(a) = H / W
+/________| 0         W = H / tan(a)
+adjacent             H = tan(a) * W
+                     a = atan(H / W)
+
+        90 →
+  ↑ q1  |  q2
+  0 ----o---- -180 : origin of arrow marks inclusive
+    q4  |  q3   ↓
+      ← -90
+
+*/
     // console.log('- - - -')
     // console.log('W  ', this.W, 'H  ', this.H);
     // console.log('W/2', this.midW, 'H/2', this.midH);
@@ -482,87 +537,188 @@ adjacent = tan(a) * height / 2
     if (Math.abs(angle) > 180) {
       angle = angle - 360 * sign;
     }
-    angle = angle === -180 ? 180 : angle;
+    angle = angle === 180 ? -180 : angle;
 
-    let maxH;
-    let maxW;
 
-    if (-180 < angle && angle <= this.inflection - 180) {
-      // console.log('sector 5');
+    let q1, q2, q3, q4 = null;
 
-      maxH = Math.tan((180 - angle) / this.radians) * this.midW;
-      maxH = Math.floor(maxH);
-      maxW = -this.midW;
+    if (cX > 0 && cY > 0) {
+      q1 = {
+        width: cX,
+        height: cY,
+        inflection: Math.atan(cY / cX) * this.radians,
+        dir: 1,
+        dirX: 1,
+        dirY: 1,
+      }
     }
-    else if (this.inflection - 180 < angle && angle <= -this.inflection) {
-      // console.log('sector 4');
-
-      maxW = Math.tan((angle + 90) / this.radians) * this.midH;
-      maxW = Math.floor(maxW);
-      maxH = -this.midH;
+    if (cX < this.W && cY > 0) {
+      q2 = {
+        width: this.W - cX,
+        height: cY,
+        inflection: Math.atan(cY / (this.W - cX)) * this.radians,
+        dir: 1,
+        dirX: -1,
+        dirY: 1,
+      }
     }
-    else if (-this.inflection < angle && angle <= this.inflection) {
-      // console.log('sector 3');
-
-      maxH = Math.tan(angle / this.radians) * this.midW;
-      maxH = Math.floor(maxH);
-      maxW = this.midW;
+    if (cX < this.W && cY < this.H) {
+      q3 = {
+        width: this.W - cX,
+        height: this.H - cY,
+        inflection: Math.atan((this.H - cY) / (this.W - cX)) * this.radians,
+        dir: 1,
+        dirX: -1,
+        dirY: -1,
+      }
     }
-    else if (this.inflection < angle && angle <= -this.inflection + 180) {
-      // console.log('sector 2');
-
-      maxW = Math.tan((90 - angle) / this.radians) * this.midH;
-      maxW = Math.floor(maxW);
-      maxH = this.midH;
+    if (cX > 0 && cY < this.H) {
+      q4 = {
+        width: cX,
+        height: this.H - cY,
+        inflection: Math.atan((this.H - cY) / cX) * this.radians,
+        dir: 1,
+        dirX: 1,
+        dirY: -1,
+      }
     }
-    else if (-this.inflection + 180 < angle && angle <= 180) {
-      // console.log('sector 1');
 
-      maxH = Math.tan((180 - angle) / this.radians) * this.midW;
-      maxH = Math.floor(maxH);
-      maxW = -this.midW;
+    let startQ;
+    let qLimits;
+
+    if (0 <= angle && angle < 90) {
+      startQ = 1;
+
+      if (q1) {
+        q1.dirX = 1;
+        q1.dirY = 1;
+      }
+      if (q3) {
+        q3.dirX = 1;
+        q3.dirY = 1;
+      }
+      qLimits = this.getQLimits(q1, q3, angle);
+    }
+    else if (90 <= angle && angle < 180) {
+      startQ = 2
+
+      if (q2) {
+        q2.dirX = -1;
+        q2.dirY = 1;
+      }
+      if (q4) {
+        q4.dirX = -1;
+        q4.dirY = 1;
+      }
+      qLimits = this.getQLimits(q2, q4, 180 - angle);
+    }
+    else if (-180 <= angle && angle < -90) {
+      startQ = 3
+
+      if (q3) {
+        q3.dirX = -1;
+        q3.dirY = -1;
+      }
+      if (q1) {
+        q1.dirX = -1;
+        q1.dirY = -1;
+      }
+      qLimits = this.getQLimits(q3, q1, angle + 180);
+    }
+    else if (-90 <= angle && angle < 0) {
+      startQ = 4
+
+      if (q4) {
+        q4.dirX = 1;
+        q4.dirY = -1;
+      }
+      if (q2) {
+        q2.dirX = 1;
+        q2.dirY = -1;
+      }
+      qLimits = this.getQLimits(q4, q2, -angle);
     }
     else {
-      throw 'Should not happen. Unrecognised angle: ' + angle;
+      throw 'Should not be here. Invalid angle: ' + angle;
     }
-    // console.log('angle', angle, 'maxW', maxW, 'maxH', maxH);
-    return { maxW, maxH };
+
+    // console.log('Q', startQ, 'angle:', angle, qLimits);
+
+    return qLimits;
+  }
+
+  getQLimits(startQ, endQ, angle) {
+    let startX = 0, startY = 0, endX = 0, endY = 0;
+
+    if (startQ) {
+      if (angle < startQ.inflection) {
+        startX = startQ.width;
+        startY = Math.floor(Math.tan(angle / this.radians) * startQ.width);
+      }
+      else {
+        startX = Math.floor(startQ.height / Math.tan(angle / this.radians));
+        startY = startQ.height;
+      }
+      startX *= startQ.dirX;
+      startY *= startQ.dirY;
+    }
+    if (endQ) {
+      if (angle < endQ.inflection) {
+        endX = endQ.width;
+        endY = Math.floor(Math.tan(angle / this.radians) * endQ.width);
+      }
+      else {
+        endX = Math.floor(endQ.height / Math.tan(angle / this.radians));
+        endY = endQ.height;
+      }
+      endX *= endQ.dirX;
+      endY *= endQ.dirY;
+    }
+
+    return {
+      x: {
+        start: startX,
+        end: endX,
+      },
+      y: {
+        start: startY,
+        end: endY,
+      },
+      angle,
+    };
+  }
+
+  reloadImage() {
+    this.ctx.drawImage(this.originalImage, 0, 0);
   }
 
   load() {
     let loaded: any = localStorage.getItem('image');
     loaded = JSON.parse(loaded);
 
+    // let loaded = test_image1;
+
     this.ctx.canvas.width = loaded.width;
     this.ctx.canvas.height = loaded.height;
 
     this.H = loaded.height;
     this.W = loaded.width;
-    this.inflection = Math.atan(this.H / this.W) * this.radians;
-
     this.midW = Math.floor(loaded.width / 2);
     this.midH = Math.floor(loaded.height / 2);
+    this.center = {
+      x: this.midW,
+      y: this.midH,
+     };
     this.radius = Math.min(this.midW, this.midH);
     // const image = this.ctx.getImageData(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
     const image = new ImageData(loaded.width, loaded.height);
-
     const data = image.data;
-    console.log('Data Length', data.length);
-
-    let count = 0;
 
     for (let i = 0, r = 0; i < data.length; i += 4, r++) {
-
-      // if (count < 10) {
-      //   console.log(data[i], data[i + 1], data[i + 2])
-      //   // console.log(loaded.data[r])
-      // }
       data[i] = loaded.data[r];
       data[i + 1] = loaded.data[r];
       data[i + 2] = loaded.data[r];
       data[i + 3] = 255;
-
-      count++;
     }
     createImageBitmap(image).then((data) => {
       this.originalImage = data;
@@ -581,14 +737,19 @@ adjacent = tan(a) * height / 2
       height: this.ctx.canvas.height,
       data: [],
     };
+
     let count = 0;
 
-
     for (let i = 0; i < data.length; i += 4) {
-      // if (count > 100) break;
-      const val = toGray(data, i);
+      let val = toGray(data, i);
+      if (val === 0 && data[i + 3] === 0) {
+        val = 255;
+        if (count < 10) {
+          console.log(i);
+        }
+        count++;
+      }
       res.data.push(val);
-      count++;
     }
     localStorage.setItem('image', JSON.stringify(res));
   }
@@ -619,6 +780,10 @@ adjacent = tan(a) * height / 2
 
       this.midW = Math.floor(image.width / 2);
       this.midH = Math.floor(image.height / 2);
+      this.center = {
+        x: this.midW,
+        y: this.midH,
+       };
       this.radius = Math.min(this.midW, this.midH);
 
 
@@ -631,32 +796,13 @@ adjacent = tan(a) * height / 2
 
       this.sliderValue = 0;
       this.angle = 10;
-
-      // const midW = Math.floor(image.width / 2);
-      // const midH = Math.floor(image.height / 2);
-      // const dim = Math.min(midW, midH);
-
-      // this.ctx.beginPath();
-      // this.ctx.arc(midW, midH, dim, 0, 2 * Math.PI);
-      // this.ctx.stroke();
     }
     this.originalImage = image;
-    // this.originalImage = URL.createObjectURL(files[0]);
-    // image.src = this.originalImage;
     image.src = URL.createObjectURL(files[0]);
-
-    // const midW = Math.floor(image.width / 2);
-    // const midH = Math.floor(image.height / 2);
-    // const dim = Math.min(midW, midH);
-
-    // this.ctx.beginPath();
-    // this.ctx.arc(midW, midH, 50, 0, 2 * Math.PI);
-    // this.ctx.stroke();
   }
 
   takeSlice() {
     const start = new Date();
-    // for (let t = 0; t < 180; t += 4) {
 
     const image = this.ctx.getImageData(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
     const step = image.width * 4;
@@ -665,11 +811,9 @@ adjacent = tan(a) * height / 2
     const slice = [];
 
     for (let i = this.midW * 4; i < data.length; i += step) {
-      // let val = getValue(data, i).toString(16).padStart(2, '0');
       let val = getValue(data, i);
       val = val > threshold ? 255 : 0;
       val = val.toString(16).padStart(2, '0');
-      // slice.push(val);
       slice.push({
         color: '#' + getColor(i) + getColor(i + 1) + getColor(i + 2),
         gray: '#' + val + val + val,
@@ -692,9 +836,7 @@ adjacent = tan(a) * height / 2
       if (s[4]) {
         end = s[4].start + s[4].length;
       }
-      // console.log('start', start, 'end', end);
       for (let i = this.midW * 4 + step * start; i < this.midW * 4 + step * end; i += step) {
-        // console.log(data[i]);
         if (colorCount === 0) {
           toGreen(data, i);
         }
@@ -712,7 +854,6 @@ adjacent = tan(a) * height / 2
     function getGray(i) {
       return
     }
-  // } //
     const end = new Date();
     console.log('time:', end - start);
   }
@@ -731,13 +872,11 @@ adjacent = tan(a) * height / 2
     function getErr(expectedLength) {
       const max = 0.5;
       const min = 0.1;
-      // let comp = 1 / expectedLength * 1.5;
       let comp = 2 / Math.log(2 + expectedLength);
       comp = comp > max ? max : comp;
       comp = comp < min ? min : comp;
 
       const err = expectedLength * comp;
-      // console.log('ERROR', expectedLength, Number(comp.toFixed(2)), Number(err.toFixed(2)));
       return err;
     }
 
@@ -914,19 +1053,13 @@ adjacent = tan(a) * height / 2
   drawCircle() {
     const image = this.originalImage;
 
-    // const midW = Math.floor(image.width / 2);
-    // const midH = Math.floor(image.height / 2);
-    // const dim = Math.min(midW, midH);
-
     this.ctx.beginPath();
     this.ctx.arc(this.midW, this.midH, this.radius, 0, 2 * Math.PI);
     this.ctx.stroke();
   }
 
   rotate(process?) {
-    // console.log('angle', this.angle)
     if (!this.angle) return;
-    // var image = this.ctx.getImageData(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
     this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
 
     const midW = this.ctx.canvas.width / 2;
@@ -934,7 +1067,6 @@ adjacent = tan(a) * height / 2
 
     this.ctx.translate(midW, midH);
     const angle = this.angle * Math.PI / 180;
-    // console.log('midH', midH, 'midW', midW, 'angle', angle);
     this.ctx.rotate(angle);
     this.ctx.translate(-midW, -midH);
     this.ctx.drawImage(this.originalImage, 0, 0);
@@ -969,14 +1101,10 @@ adjacent = tan(a) * height / 2
     let printed = false;
     let Yprinted = false;
     const start: any = new Date();
-    // this.ctx.drawImage(this.originalImage, 0, 0);
-    // var oimage = this.ctx.getImageData(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
+
     this.vctx.canvas.width = this.ctx.canvas.width;
     this.vctx.canvas.height = this.ctx.canvas.height;
     this.vctx.drawImage(this.ctx.canvas, 0, 0);
-    // this.ctx2.drawImage(this.ctx.canvas, 0, 0);
-    // this.vctx.putImageData(oimage, 0, 0);
-    // this.vctx.save();
 
     const yStep = Math.ceil(this.radius * 2 / 200);
     let res = [];
@@ -1026,7 +1154,6 @@ adjacent = tan(a) * height / 2
         const xDiff = this.midW - x;
         const xDiff2 = Math.pow(xDiff, 2);
         const thDim = Math.floor(Math.min(image.height, image.width) * 0.01);
-        // const thVal = 10;
         let thVal = 10;
         // const thVal = Math.floor((max - min) * 0.5);
 
@@ -1046,44 +1173,21 @@ adjacent = tan(a) * height / 2
         const yCompStep = step * yStep;
 
         for (let d = lineIndex; d < data.length; d += yCompStep, y += yStep) {
-        // for (let d = lineIndex; d < data.length; d += step * yStep, y += yStep) {
-          // if (prevVal) {
-          //   const valueP10 = value - value * 0.1;
-          //   const valueN10 = value + value * 0.1;
-
-          // }
-          // min = Math.min(min, value);
-          // max = Math.max(max, value);
-
-          // line.push(value);
           const yDiff = this.midH - y;
           const radiusDiff = Math.sqrt(xDiff2 + Math.pow(yDiff, 2));
           if (radiusDiff > this.radius) {
-            // console.log('x', x, 'y', y);
             continue;
           }
-
 
           const value = getValue(data, d);
           if (prevVal === null) {
             prevVal = value;
-            // prevVal = line[p];
           }
 
-          // const diff = Math.abs(prevVal - value);
           const maxV = Math.max(prevVal, value);
           const minV = Math.min(prevVal, value);
           const changePercent = 100 - 100 * minV / maxV;
           if (changePercent > 50) {
-            // const yDiff = this.midH - y;
-            // const radiusDiff = Math.sqrt(xDiff2 + Math.pow(yDiff, 2));
-            // if (radiusDiff > this.radius) {
-            //   // console.log('x', x, 'y', y);
-            //   continue;
-            // }
-          // if (diff > thVal) {
-            // console.log(diff);
-
             if (!currStart) {
               currStart = y;
               prevVal = value;
@@ -1154,21 +1258,11 @@ adjacent = tan(a) * height / 2
 
     // let angle = minObj.angle;
     let angle = minObj.angle + this.sliderValue;
-    // angle = angle > 90 ? angle - 90 : angle;
 
     const radians = angle * Math.PI / 180;
-    // console.log('Angle', angle, 'Radians', radians)
-
-    // const halfH = Math.ceil(this.radius * Math.tan(radians));
 
     const x = this.radius * Math.cos(radians);
     const y = this.radius * Math.sin(radians);
-    // console.log('X', x, 'Y', y);
-    // console.log('start', this.midW - x, this.midH + y)
-    // console.log('end', this.midW + x, this.midH - y)
-
-    // this.ctx.restore();
-    // this.ctx.drawImage(this.originalImage, 0, 0);
 
     this.ctx.beginPath();
     this.ctx.lineWidth = 5;
@@ -1224,7 +1318,6 @@ adjacent = tan(a) * height / 2
 
     this.maxOcc = maxOcc;
     this.maxOccVal = 0;
-    // this.maxOccVal = maxOccVal;
 
     for (let r of occArr) {
       if (Number(r.key) < rAve) {
@@ -1233,28 +1326,13 @@ adjacent = tan(a) * height / 2
       }
     }
 
-
-
-
-
-
-
-
-
-
-
-    // this.ctx2.restore();
     this.ctx2.canvas.width = this.ctx.canvas.width;
     this.ctx2.canvas.height = this.ctx.canvas.height;
     const midW = this.ctx2.canvas.width / 2;
     const midH = this.ctx2.canvas.height / 2;
 
     this.ctx2.translate(midW, midH);
-    // console.log(minObj.angle)
-    // const flipAngle = minObj.angle === 0 ? 0 : minObj.angle - 180;
-    // const flipAngle = minObj.angle === 0 ? 180 : minObj.angle;
     this.ctx2.rotate((minObj.angle) * Math.PI / 180);
-    // this.ctx2.rotate((flipAngle) * Math.PI / 180);
     this.ctx2.translate(-midW, -midH);
     this.ctx2.drawImage(this.ctx.canvas, 0, 0);
 
@@ -1267,20 +1345,15 @@ adjacent = tan(a) * height / 2
       const rowValue = minObj.rows[r];
       let val = getValueH(data, r, step);
       const comp = (rMax - rMin) * 0.0;
-      // if (rowValue > rMin + comp) {
+
       if (rowValue > rMin + comp && rowValue >= rAve) {
-      // if (rowValue > rMin + comp && rowValue >= maxOcc) {
-        // console.log(rowValue, maxOcc, rowValue >= maxOcc * 0.001)
         val = ((rowValue - rMin) / (rMax - rMin)) * 255;
         val = Math.floor(val);
-        // console.log(val);
         drawLineH(data, r, step, val);
 
       }
     }
 
-
-    // let target = minObj.angle > 90 ? minObj.angle - 90 : minObj.angle + 90;
     let target = minObj.angle + 90;
     res = [...res.slice(minObjIndex), ...res.slice(0, minObjIndex)];
     let prev = null;
@@ -1288,9 +1361,7 @@ adjacent = tan(a) * height / 2
 
     for (let i = res.length - minObjIndex; i < res.length; i++) {
       let r = res[i];
-      // console.log('angle before', r.angle);
       r.angle += 180;
-      // console.log('after', r.angle);
     }
 
 
