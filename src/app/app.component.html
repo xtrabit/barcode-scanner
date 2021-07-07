@@ -11,6 +11,10 @@
   <canvas #canvas2></canvas>
 </div>
 <br>
+error coeficient (0.5 - tight / 1 - looser)<input type="number" [(ngModel)]="errCoeficient">
+<br>
+threshold<input type="number" [(ngModel)]="threshold">
+<br>
 <button type="button" (click)="reloadImage()">clear image</button>
 <button type="button" (click)="save()">save</button>
 <br>

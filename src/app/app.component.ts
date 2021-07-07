@@ -3,7 +3,7 @@ import test_image1 from '../assets/test_image1.js';
 
 let skipLinesConst = 20;
 
-const threshold = 150;
+const threshold = 160;
 
 @Component({
   selector: 'app-root',
@@ -50,8 +50,11 @@ export class AppComponent implements OnInit, AfterViewInit{
   angleInput = {
     from: 0,
     to: 180,
-    step: 4,
+    step: 3,
   };
+
+  threshold = 160;
+  errCoeficient = 1;
 
 
   @ViewChild('canvas') canvas: ElementRef<HTMLCanvasElement>;
@@ -111,6 +114,7 @@ export class AppComponent implements OnInit, AfterViewInit{
 
   rIterator() {
 
+    this.reloadImage();
 
     this.H = this.ctx.canvas.height;
     this.W = this.ctx.canvas.width;
@@ -150,11 +154,20 @@ adjacent = tan(a) * height / 2
 
     const scans = [];
 
-    for (let a = 0; a < 180; a += 4) {
+    const gt = this.angleInput.from < this.angleInput.to && this.angleInput.step > 0;
+    const lt = this.angleInput.from > this.angleInput.to && this.angleInput.step < 0;
+
+    if (!gt && !lt) return;
+
+    for (let a = this.angleInput.from; gt ? (a < this.angleInput.to ? true : false) : (a > this.angleInput.to ? true : false); a += this.angleInput.step) {
+
+    // for (let a = 0; a < 180; a += 4) {
       const slice = {
         angle: a,
         center: this.center,
         found: [],
+        hasStart: false,
+        hasEnd: false,
       };
       const tracker = {
         t: [],
@@ -217,6 +230,18 @@ adjacent = tan(a) * height / 2
 
       for (let p = start; p < end; p++) {
         const i = params.getIndex(p, this.step);
+        if (slice.hasStart && slice.hasEnd) {
+          toDarkGreen(this.data, i);
+          // toYellow(this.data, i);
+          // toGreen(this.data, i);
+        }
+        else if (marker.type === 'end') {
+          toRed(this.data, i);
+        }
+        else {
+          toBlue(this.data, i);
+          // toGreen(this.data, i);
+        }
 
         // if (p - start <= head) {
         //   toGreen(this.data, i);
@@ -225,40 +250,33 @@ adjacent = tan(a) * height / 2
         //   toRed(this.data, i);
         // }
 
-        if (colorCount === 0) {
-          // toGreen(this.data, i);
-          toRed(this.data, i);
-        }
-        else {
-          toRed(this.data, i);
-        }
+        // if (colorCount === 0) {
+        //   // toGreen(this.data, i);
+        //   toRed(this.data, i);
+        // }
+        // else {
+        //   toRed(this.data, i);
+        // }
       }
       colorCount++;
     }
   }
 
   processPoint(slice, tracker, p, i) {
+    const quietZoneMultiplier = 3;
+
     let val = getAverage(this.data, i);
-    val = val < threshold ? 0 : 1;
-    // val = val.toString(16).padStart(2, '0');
-    // slice.push(val);
-    // slice.push({
-    //   color: '#' + getColor(i) + getColor(i + 1) + getColor(i + 2),
-    //   gray: '#' + val + val + val,
-    //   o: getValue(data, i),
-    // });
+    val = val < this.threshold ? 0 : 1;
 
-
-    const th = threshold;
-    const err = 0.3;
-    // let res = [];
-    // let prev = slice[0].o < th ? 0 : 1;
-    // let expectedLength = 0;
+    const errCoeficient = this.errCoeficient;
 
     function getErr(expectedLength) {
       const max = 0.5;
-      const min = 0.1;
-      let comp = 2 / Math.log(2 + expectedLength);
+      const min = 0.3;
+      // need a finely controlled method here error to pixel dimension
+      let comp = errCoeficient / Math.log(expectedLength); // loose
+      // let comp = .5 / Math.log(expectedLength); // loose
+      // let comp = 0.5 / Math.log(expectedLength); // tight
       comp = comp > max ? max : comp;
       comp = comp < min ? min : comp;
 
@@ -266,17 +284,6 @@ adjacent = tan(a) * height / 2
       // console.log('ERROR', expectedLength, Number(comp.toFixed(2)), Number(err.toFixed(2)));
       return err;
     }
-
-    // let t = [];
-    // if (prev) {
-    //   t[0] = {
-    //     start: 0,
-    //     current: true,
-    //   };
-    // }
-
-    // for (let p = 1; p < slice.length; p++) {
-    //   const val = slice[p].o < th ? 0 : 1;
 
     if (!tracker.t[0]) {
       if (!tracker.prev && val) {
@@ -365,7 +372,7 @@ adjacent = tan(a) * height / 2
         tracker.prev = val;
         return;
       }
-      const expectedQuietZone = (tracker.t[1].length + tracker.t[2].length + tracker.t[3].length) * 3;
+      const expectedQuietZone = (tracker.t[1].length + tracker.t[2].length + tracker.t[3].length) * quietZoneMultiplier;
       const quietZoneErr = getErr(expectedQuietZone);
       const quietZoneDiff = Math.abs(tracker.t[0].length - expectedQuietZone);
       // console.log('--GOT 3', t)
@@ -383,10 +390,11 @@ adjacent = tan(a) * height / 2
         return;
       }
       tracker.t[0].valid = true;
-      const qzLength = expectedQuietZone > tracker.t[0].length ? tracker.t[0].length : expectedQuietZone;
-      tracker.t[0].start = tracker.t[0].start + tracker.t[0].length - expectedQuietZone;
+      const qzLength = expectedQuietZone > tracker.t[0].length ? tracker.t[0].length : Math.floor(expectedQuietZone);
+      tracker.t[0].start = tracker.t[0].start + tracker.t[0].length - Math.floor(expectedQuietZone);
 
       slice.found.push(tracker.t);
+      slice.hasStart = true;
       tracker.prev = val;
 
       tracker.t = [{
@@ -399,14 +407,43 @@ adjacent = tan(a) * height / 2
       return;
     }
     if (tracker.t[4] && tracker.t[4].current) { // white
-      if (val) return;
+      // if (val) return; // need to check every single pixel or it will run off the screen
+
+      const expectedQuietZone = (tracker.t[1].length + tracker.t[2].length + tracker.t[3].length) * quietZoneMultiplier;
+      const quietZoneErr = getErr(expectedQuietZone);
+      const quietZoneDiff = Math.abs(tracker.t[4].length - expectedQuietZone);
+
+      if (val) {
+        const length = p - tracker.t[4].start;
+
+        if (length >= (expectedQuietZone - quietZoneErr)) {
+          tracker.t[4].current = false;
+          tracker.t[4].length = length;
+
+          // Object.defineProperty('type', tracker.t, {value: 'end'});
+          tracker.t.type = 'end';
+
+          slice.found.push(tracker.t);
+          slice.hasEnd = true;
+
+          tracker.t = [
+            tracker.t[4],
+            {
+              start: p,
+              current: true,
+            },
+          ];
+          tracker.expectedLength = null;
+          tracker.prev = val;
+        }
+        return;
+      }
+
+
 
       tracker.t[4].current = false;
       tracker.t[4].length = p - tracker.t[4].start;
 
-      const expectedQuietZone = (tracker.t[1].length + tracker.t[2].length + tracker.t[3].length) * 3;
-      const quietZoneErr = getErr(expectedQuietZone);
-      const quietZoneDiff = Math.abs(tracker.t[4].length - expectedQuietZone);
 
       if (tracker.t[4].length < (expectedQuietZone - quietZoneErr)) {
         tracker.expectedLength = null;
@@ -422,6 +459,7 @@ adjacent = tan(a) * height / 2
       }
 
       slice.found.push(tracker.t);
+      slice.hasEnd = true;
 
       tracker.t = [
         tracker.t[4],
@@ -435,9 +473,6 @@ adjacent = tan(a) * height / 2
 
       return;
     }
-
-    // }
-    // return res;
   }
 
   getIterationParams(angle, cX, cY) {
@@ -795,7 +830,7 @@ adjacent             H = tan(a) * W
       // this.drawCircle();
 
       this.sliderValue = 0;
-      this.angle = 10;
+      this.angle = 0;
     }
     this.originalImage = image;
     image.src = URL.createObjectURL(files[0]);
@@ -1405,17 +1440,6 @@ adjacent             H = tan(a) * W
       }
     }
 
-
-
-
-
-
-
-
-
-
-
-
     // this.ctx2.clearRect(0, 0, this.ctx2.canvas.width, this.ctx2.canvas.height);
     this.ctx2.putImageData(image, 0, 0);
     // this.ctx2.drawImage(this.ctx.canvas, 0, 0);
@@ -1658,17 +1682,6 @@ adjacent             H = tan(a) * W
       }
     }
 
-    // maxOcc *= 0.1;
-    // maxOcc /= 2;
-    // console.log('Max occ', maxOcc);
-
-    // this.endsCount = 0;
-    // for (let r of rows) {
-    //   if (r >= rAve) {
-    //     this.endsCount++;
-    //   }
-    // }
-
     for (let r = 0; r < rows.length; r += 1) {
       const rowValue = rows[r];
       let val = getValueH(data, r, step);
@@ -1685,103 +1698,6 @@ adjacent             H = tan(a) * W
       }
 
     }
-
-
-
-
-
-
-
-
-
-    // const degrees = 1;
-    // const allowance = Math.ceil(image.width * Math.tan(degrees * Math.PI / 180));
-    // console.log('allowance', allowance);
-
-    // const sorted = getSortedEdges(lines);
-
-    // // console.log(sorted);
-
-    // // colorEdges(data, sorted.start, step);
-
-    // const filteredStart = filterEdges(image.width, sorted.start, allowance, 'start');
-
-    // console.log('filteredStart', filteredStart);
-
-    // const selectIndex = 0;
-
-    // const aveStartStart = getAverageEdge(filteredStart[selectIndex], 'start');
-    // const aveStartEnd = getAverageEdge(filteredStart[selectIndex], 'end');
-    // const midStart = Math.floor((aveStartStart + aveStartEnd) / 2);
-
-    // console.log('ave start:', aveStartStart, aveStartEnd, midStart);
-
-    // drawLineH(data, midStart, step);
-
-    // colorEdges(data, filteredStart[selectIndex], step);
-
-
-
-
-
-
-    // const filteredEnd = filterEdges(image.width, sorted.end, allowance, 'end');
-
-    // // console.log(filteredEnd);
-    // const aveEndStart = getAverageEdge(filteredEnd[0], 'start');
-    // const aveEndEnd = getAverageEdge(filteredEnd[0], 'end');
-    // const midEnd = Math.floor((aveEndStart + aveEndEnd) / 2);
-
-    // console.log('ave end:', aveEndStart, aveEndEnd, midEnd);
-
-    // drawLineH(data, midEnd, step);
-
-    // colorEdges(data, filteredEnd[0], step);
-
-
-
-
-
-
-    // for (let i = lineIndex; i < data.length; i += step) {
-    //   // toBlack(data, i);
-    //   // toGray(data, i);
-    //   // toBlue(data, i);
-    //   // toGreen(data, i);
-    //   // toRed(data, i);
-    //   const value = getValue(data, i);
-    //   min = Math.min(min, value);
-    //   max = Math.max(max, value);
-
-    //   line.push(value);
-    // }
-
-    // // console.log(line);
-    // console.log('min', min, 'max', max);
-
-    // const edges = findEdges(line, min, max, image.width);
-
-    // console.log(edges);
-    // let count = 0;
-    // for (let e of edges) {
-    //   let convert = colorMap[count];
-
-
-    //   for (let i = lineIndex + step * e.start; i < (lineIndex + step * e.end); i += step) {
-    //     // toRed(data, i);
-    //     convert(data, i);
-    //   }
-    //   count++;
-    //   if (count === colorMap.length) {
-    //     count = 0;
-    //   }
-    // }
-
-    // for (var i = 0; i < data.length; i += 4) {
-    //   toGray(data, i);
-    // }
-
-
 
     this.ctx2.canvas.width = image.width;
     this.ctx2.canvas.height = image.height;
@@ -2103,6 +2019,12 @@ function toGreen(data, i) {
   data[i + 2] = 0;
 }
 
+function toDarkGreen(data, i) {
+  data[i] = 0;
+  data[i + 1] = 190;
+  data[i + 2] = 0;
+}
+
 function toBlack(data, i) {
   data[i] = 0;
   data[i + 1] = 0;
@@ -2115,4 +2037,10 @@ function toGray(data, i) {
   data[i + 1] = avg; // green
   data[i + 2] = avg; // blue
   return Math.floor(avg);
+}
+
+function toYellow(data, i) {
+  data[i] = 255;
+  data[i + 1] = 187;
+  data[i + 2] = 0;
 }
