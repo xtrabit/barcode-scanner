@@ -197,6 +197,8 @@ adjacent = tan(a) * height / 2
       if (slice.found.length) {
         scans.push(slice);
       }
+
+      this.findLongestAngle(slice);
     }
 
     const end = Date.now();
@@ -206,6 +208,34 @@ adjacent = tan(a) * height / 2
       this.drawSlice(slice);
     }
     this.ctx.putImageData(this.image, 0, 0);
+  }
+
+  findLongestAngle(slice) {
+    // const { angle, found: markers } = slice;
+    const sliceParams = this.getIterationParams(slice.angle, slice.center.x, slice.center.y);
+
+    main:
+    for (let marker of slice.found) {
+      // console.log('marker', marker)
+      // console.log('sliceParams', sliceParams)
+      const center = marker[1].start + Math.floor(marker[1].length / 2);
+      const x = sliceParams.getX(center);
+      const y = sliceParams.getY(center);
+      // console.log('x', x, 'y', y);
+
+      for (let a = 0; a < 180; a += 1) {
+        const params = this.getIterationParams(a, x, y);
+
+        const pointLength = 3;
+        for (let p = Math.max(params.center - pointLength, 0); p < Math.min(params.center + pointLength, params.length); p++) {
+        // for (let p = 0; p < params.length; p++) {
+          const i = params.getIndex(p, this.step);
+          toYellow(this.data, i);
+        }
+      }
+      // break main;
+    }
+
   }
 
   drawSlice(slice) {
@@ -522,6 +552,9 @@ adjacent = tan(a) * height / 2
       length: null,
       getX: null,
       getY: null,
+      center: null,
+      dir: null,
+      type: null,
       getIndex(i, step) {
         const x = this.getX(i);
         const y = this.getY(i);
@@ -533,13 +566,34 @@ adjacent = tan(a) * height / 2
 
     if (x.length >= y.length) {
       p.length = x.length;
-      p.getX = function(i) { return this.x.start + i * this.x.dir; };
-      p.getY = function(i) { return Math.floor(this.y.start + i * this.y.step * this.y.dir); };
+      p.center = Math.abs(limits.x.start);
+      p.dir = x.dir;
+      p.type = 'X';
+      p.getX = function(i) {
+        const res =  this.x.start + i * this.x.dir;
+        // if (isNaN(res)) {
+        //   console.log('this.x.start', this.x.start, 'i', i, 'this.x.dir', this.x.dir);
+        // }
+        return res;
+      };
+      p.getY = function(i) {
+        const res =  Math.floor(this.y.start + i * this.y.step * this.y.dir);
+        return res;
+      };
     }
     else {
       p.length = y.length;
-      p.getX = function(i) { return Math.floor(this.x.start + i * this.x.step * this.x.dir); };
-      p.getY = function(i) { return this.y.start + i * this.y.dir; };
+      p.center = Math.abs(limits.y.start);
+      p.dir = y.dir;
+      p.type = 'Y';
+      p.getX = function(i) {
+        const res = Math.floor(this.x.start + i * this.x.step * this.x.dir);
+        return res;
+      };
+      p.getY = function(i) {
+        const res =  this.y.start + i * this.y.dir;
+        return res;
+      };
     }
 
     return p;
