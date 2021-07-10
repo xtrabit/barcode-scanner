@@ -53,7 +53,7 @@ export class AppComponent implements OnInit, AfterViewInit{
     step: 3,
   };
 
-  threshold = 160;
+  threshold = 130;
   errCoeficient = 1;
 
 
@@ -153,6 +153,7 @@ adjacent = tan(a) * height / 2
     const start = Date.now();
 
     const scans = [];
+    const ends = [];
 
     const gt = this.angleInput.from < this.angleInput.to && this.angleInput.step > 0;
     const lt = this.angleInput.from > this.angleInput.to && this.angleInput.step < 0;
@@ -198,7 +199,7 @@ adjacent = tan(a) * height / 2
         scans.push(slice);
       }
 
-      this.findLongestAngle(slice);
+      this.findLongestAngle(slice, ends);
     }
 
     const end = Date.now();
@@ -207,35 +208,219 @@ adjacent = tan(a) * height / 2
     for (let slice of scans) {
       this.drawSlice(slice);
     }
+
+    for (let end of ends) {
+      const params = this.getIterationParams(end.angle, end.center.x, end.center.y);
+      for (let p = Math.min(end.start, end.end); p < Math.max(end.start, end.end); p++) {
+        const i = params.getIndex(p, this.step);
+        toYellow(this.data, i);
+      }
+    }
+
     this.ctx.putImageData(this.image, 0, 0);
   }
 
-  findLongestAngle(slice) {
+  findLongestAngle(slice, resObj) {
     // const { angle, found: markers } = slice;
     const sliceParams = this.getIterationParams(slice.angle, slice.center.x, slice.center.y);
 
     main:
     for (let marker of slice.found) {
-      // console.log('marker', marker)
-      // console.log('sliceParams', sliceParams)
-      const center = marker[1].start + Math.floor(marker[1].length / 2);
-      const x = sliceParams.getX(center);
-      const y = sliceParams.getY(center);
-      // console.log('x', x, 'y', y);
+      // const center = marker[1].start + 1;
+      // const center = marker[1].start;
+      // const center = marker[1].start + Math.floor(marker[1].length / 2);
+      // const x = sliceParams.getX(center);
+      // const y = sliceParams.getY(center);
 
-      for (let a = 0; a < 180; a += 1) {
-        const params = this.getIterationParams(a, x, y);
+      let line1 = null;
+      let line2 = null;
 
-        const pointLength = 3;
-        for (let p = Math.max(params.center - pointLength, 0); p < Math.min(params.center + pointLength, params.length); p++) {
-        // for (let p = 0; p < params.length; p++) {
-          const i = params.getIndex(p, this.step);
-          toYellow(this.data, i);
+
+      let res1 = this.getEndLine(marker, 1, sliceParams);
+      res1.sort((a, b) => b.length - a.length);
+      if (res1.length) {
+        const longest = res1[0];
+        // resObj.push(longest);
+        line1 = res1[0];
+      }
+
+      let res2 = this.getEndLine(marker, 3, sliceParams);
+      res2.sort((a, b) => b.length - a.length);
+      if (res2.length) {
+        const longest = res2[0];
+        // resObj.push(longest);
+        line2 = res2[0];
+      }
+
+      if (line1 && line2) {
+
+        const diff = Math.abs(line1.angle - line2.angle);
+        // const max = Math.max(line1.angle, line2.angle);
+
+        if (diff < 1) {
+          resObj.push(line1);
+          resObj.push(line2);
         }
       }
-      // break main;
+      // const res = [];
+
+      // for (let a = 0; a < 180; a += .3) {
+      //   const params = this.getIterationParams(a, x, y);
+
+      //   let start = null;
+      //   let end = null;
+
+      //   for (let p = params.center - 1; p > 0; p--) {
+      //     const i = params.getIndex(p, this.step);
+      //     let val = getAverage(this.data, i);
+      //     val = val < this.threshold ? 0 : 1;
+
+      //     if (val || !val && p === 1) {
+      //       start = p;
+      //       break;
+      //     }
+      //   }
+      //   for (let p = params.center + 1; p < params.length; p++) {
+      //     const i = params.getIndex(p, this.step);
+      //     let val = getAverage(this.data, i);
+      //     val = val < this.threshold ? 0 : 1;
+
+      //     if (val || !val && p === params.length - 1) {
+      //       end = p;
+      //       break;
+      //     }
+      //   }
+
+      //   if (start !== null && end !== null) {
+      //     const length = Math.abs(end - start);
+
+      //     if (length > marker.length * 1) {
+      //       res.push({
+      //         angle: a,
+      //         start,
+      //         end,
+      //         length: Math.abs(end - start),
+      //         center: {
+      //           x,
+      //           y,
+      //         },
+      //       });
+      //     }
+
+      //   }
+
+        // Draw points
+        // const pointLength = 3;
+        // for (let p = Math.max(params.center - pointLength, 0); p < Math.min(params.center + pointLength, params.length); p++) {
+        // // for (let p = 0; p < params.length; p++) {
+        //   const i = params.getIndex(p, this.step);
+        //   toYellow(this.data, i);
+        // }
+      // }
+      // res.sort((a, b) => a.length - b.length); // shortest
+      // res.sort((a, b) => b.length - a.length); // longest
+
+
+
+      // if (res.length) {
+      //   const longest = res[0];
+      //   resObj.push(longest);
+
+      //   // const filtered = res.filter((elem) => elem.length > longest.length - longest.length * 0.10);
+
+      //   // const aveStart = this.getAverage(filtered, 'start');
+      //   // const aveEnd = this.getAverage(filtered, 'end');
+      //   // const aveangle = this.getAverage(filtered, 'angle');
+
+      //   // resObj.push({
+      //   //   angle: aveangle,
+      //   //   start: aveStart,
+      //   //   end: aveEnd,
+      //   //   length: Math.abs(aveEnd - aveStart),
+      //   //   center: {
+      //   //     x,
+      //   //     y,
+      //   //   },
+      //   // });
+
+      //   // const params = this.getIterationParams(longest.angle, longest.center.x, longest.center.y);
+      //   // for (let p = 0; p < params.length; p++) {
+      //   //   const i = params.getIndex(p, this.step);
+      //   //   toYellow(this.data, i);
+      //   // }
+      // }
     }
 
+  }
+
+  getEndLine(marker, i, sliceParams) {
+    const center = marker[i].start + Math.floor(marker[i].length / 2);
+    const x = sliceParams.getX(center);
+    const y = sliceParams.getY(center);
+    const res = [];
+
+    for (let a = 0; a < 180; a += .3) {
+      const params = this.getIterationParams(a, x, y);
+
+      let start = null;
+      let end = null;
+
+      for (let p = params.center - 1; p > 0; p--) {
+        const i = params.getIndex(p, this.step);
+        let val = getAverage(this.data, i);
+        val = val < this.threshold ? 0 : 1;
+
+        if (val || !val && p === 1) {
+          start = p;
+          break;
+        }
+      }
+      for (let p = params.center + 1; p < params.length; p++) {
+        const i = params.getIndex(p, this.step);
+        let val = getAverage(this.data, i);
+        val = val < this.threshold ? 0 : 1;
+
+        if (val || !val && p === params.length - 1) {
+          end = p;
+          break;
+        }
+      }
+
+      if (start !== null && end !== null) {
+        const length = Math.abs(end - start);
+
+        if (length > marker[i].length * 10) {
+          res.push({
+            angle: a,
+            start,
+            end,
+            length: Math.abs(end - start),
+            center: {
+              x,
+              y,
+            },
+          });
+        }
+
+      }
+
+      // Draw points
+      // const pointLength = 3;
+      // for (let p = Math.max(params.center - pointLength, 0); p < Math.min(params.center + pointLength, params.length); p++) {
+      // // for (let p = 0; p < params.length; p++) {
+      //   const i = params.getIndex(p, this.step);
+      //   toYellow(this.data, i);
+      // }
+    }
+    return res;
+  }
+
+  getAverage(arr, field) {
+    let sum = 0;
+    for (let f of arr) {
+      sum += f[field];
+    }
+    return sum / arr.length;
   }
 
   drawSlice(slice) {
@@ -783,6 +968,7 @@ adjacent             H = tan(a) * W
 
   load() {
     let loaded: any = localStorage.getItem('image');
+    if (!loaded) return;
     loaded = JSON.parse(loaded);
 
     // let loaded = test_image1;
