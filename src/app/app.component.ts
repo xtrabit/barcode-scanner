@@ -201,7 +201,7 @@ adjacent = tan(a) * height / 2
         scans.push(slice);
       }
 
-      this.findLongestAngle(slice, paintLater);
+      this.findPerpendicular(slice, paintLater);
     }
 
     const end = Date.now();
@@ -210,20 +210,29 @@ adjacent = tan(a) * height / 2
     for (let slice of scans) {
       this.drawSlice(slice);
 
-      for (let {line1, line2} of slice.ends) {
+      for (let { line } of slice.ends) {
 
-        const params1 = this.getIterationParams(line1.angle, line1.center.x, line1.center.y);
-        for (let p = Math.min(line1.start, line1.end); p < Math.max(line1.start, line1.end); p++) {
-          const i = params1.getIndex(p, this.step);
+        const params = this.getIterationParams(line.angle, line.center.x, line.center.y);
+        for (let p = Math.min(line.start, line.end); p < Math.max(line.start, line.end); p++) {
+          const i = params.getIndex(p, this.step);
           toYellow(this.data, i);
         }
-
-        const params2 = this.getIterationParams(line2.angle, line2.center.x, line2.center.y);
-        for (let p = Math.min(line2.start, line2.end); p < Math.max(line2.start, line2.end); p++) {
-          const i = params2.getIndex(p, this.step);
-          toPink(this.data, i);
-        }
       }
+
+      // for (let {line1, line2} of slice.ends) {
+
+      //   const params1 = this.getIterationParams(line1.angle, line1.center.x, line1.center.y);
+      //   for (let p = Math.min(line1.start, line1.end); p < Math.max(line1.start, line1.end); p++) {
+      //     const i = params1.getIndex(p, this.step);
+      //     toYellow(this.data, i);
+      //   }
+
+      //   const params2 = this.getIterationParams(line2.angle, line2.center.x, line2.center.y);
+      //   for (let p = Math.min(line2.start, line2.end); p < Math.max(line2.start, line2.end); p++) {
+      //     const i = params2.getIndex(p, this.step);
+      //     toPink(this.data, i);
+      //   }
+      // }
     }
 
     for (let f of paintLater) {
@@ -234,23 +243,18 @@ adjacent = tan(a) * height / 2
     this.ctx.putImageData(this.image, 0, 0);
   }
 
-  findLongestAngle(slice, paintLater) {
-    // const paintLater = [];
-
+  findPerpendicular(slice, paintLater) {
     const sliceParams = this.getIterationParams(slice.angle, slice.center.x, slice.center.y);
 
-    main:
     for (let marker of slice.found) {
 
       let line1 = null;
       let line2 = null;
 
-
       let res1 = this.getEndLine(marker, 1, sliceParams);
       res1.sort((a, b) => b.length - a.length);
       if (res1.length) {
         const longest = res1[0];
-        // ends.push(longest);
         line1 = res1[0];
       }
 
@@ -258,90 +262,64 @@ adjacent = tan(a) * height / 2
       res2.sort((a, b) => b.length - a.length);
       if (res2.length) {
         const longest = res2[0];
-        // ends.push(longest);
         line2 = res2[0];
       }
 
       if (line1 && line2) {
 
         const diff = Math.abs(line1.angle - line2.angle);
-        // const max = Math.max(line1.angle, line2.angle);
 
         if (diff < 1) {
+          // There is a possiblility here that the estimated quiet zone start is off because of the direction flip
+          // and instead of adding to outside line, quiet zone is added to inside line position. Not a big deal.
+          const startLine = marker.type === 'start' ? line1 : line2;
+          const perp = this.getPerpendicularParams(startLine, slice, marker);
+
           slice.ends.push({
-            type: marker.type,
-            line1: marker.type === 'start' ? line1 : line2,
-            line2: marker.type === 'start' ? line2 : line1,
+            line: startLine,
+            perp,
+            // line1: marker.type === 'start' ? line1 : line2,
+            // line2: marker.type === 'start' ? line2 : line1,
           });
-          // ends.push(line1);
-          // ends.push(line2);
 
-          // this.drawPerpendicular(line1, line2);
-
-          // const sliceDir = sliceParams.dir;
-          const perp = this.getPerpendicularParams(line1, line2, slice, marker, paintLater);
-          // const perp = this.findPerpendicularAngle(line1, line2);
-          // const pParams = this.getIterationParams(perp.angle, perp.center.x, perp.center.y);
-          // const qzLength = this.findQuietZoneLength(slice.angle, perp.angle, marker[1].length + marker[2].length + marker[3].length);
-
-          // if (sliceParams.dir === pParams.dir) {
-          //   const sliceQzStartDir = marker.type === 'start' ? pParams.dir : -pParams.dir;
-          //   const qzDir = sliceQzStartDir * pParams.dir;
-          //   const qzStartPoint = pParams.center - qzLength * qzDir;
-
-          //   if (sliceParams.dir === sliceQzStartDir) {
-          //     for (let p = qzStartPoint; p < pParams.length; p++) {
-          //       const i = pParams.getIndex(p, this.step);
-          //       paintLater.push(toPink.bind(null, this.data, i))
-          //     }
-          //   }
-          //   else {
-          //     for (let p = 0; p <= qzStartPoint; p++) {
-          //       const i = pParams.getIndex(p, this.step);
-          //       paintLater.push(toYellow.bind(null, this.data, i))
-          //     }
-          //   }
-          // }
-          // else {
-          //   const sliceQzStartDir = marker.type === 'start' ? 1 : -1;
-          //   const angleDiff = Math.abs(slice.angle - perp.angle);
-          //   // const angleDiffDir = (slice.angle - perp.angle) / angleDiff;
-
-          //   let qzDir;
-          //   if (sliceParams.dir === -1) {
-          //     qzDir = sliceQzStartDir * pParams.dir * (angleDiff < 90 ? 1 : -1);
-          //   }
-          //   else {
-          //     qzDir = -sliceQzStartDir * pParams.dir * (angleDiff < 90 ? 1 : -1);
-
-          //   }
-          //   const qzStartPoint = pParams.center - qzLength * qzDir;
-
-          //   if (qzDir === 1) {
-          //     for (let p = qzStartPoint; p < pParams.length; p++) {
-          //       const i = pParams.getIndex(p, this.step);
-          //       paintLater.push(toBlue.bind(null, this.data, i))
-          //     }
-          //   }
-          //   else {
-          //     for (let p = 0; p <= qzStartPoint; p++) {
-          //       const i = pParams.getIndex(p, this.step);
-          //       paintLater.push(toRed.bind(null, this.data, i))
-          //     }
-          //   }
-          // }
-
+          if (perp.dir === 1) {
+            for (let p = perp.start; p < perp.length; p++) {
+              const i = perp.params.getIndex(p, this.step);
+              paintLater.push(toBlue.bind(null, this.data, i))
+            }
+          }
+          else {
+            for (let p = 0; p <= perp.start; p++) {
+              const i = perp.params.getIndex(p, this.step);
+              paintLater.push(toYellow.bind(null, this.data, i))
+            }
+          }
         }
       }
     }
   }
 
-  getPerpendicularParams(line1, line2, slice, marker, paintLater) {
+  getPerpendicularParams(line, slice, marker) {
+    // This is very confusing and I can't possibly prove this geometrically or explain it
+    // The objective is simple: find where on the perpendicular is the start of the quiet zone,
+    // and where to look for a barcode from this point: towards start or towards end.
+    // It is possible that angles 0, 90, 180 would cause trouble. Not sure if it mill work for anything
+    // other than the range between 0 - 180 with positive step.
+
     const sliceParams = this.getIterationParams(slice.angle, slice.center.x, slice.center.y);
 
-    const perp = this.findPerpendicularAngle(line1, line2);
+    const perp = this.findPerpendicularAngle(line);
     const pParams = this.getIterationParams(perp.angle, perp.center.x, perp.center.y);
     const qzLength = this.findQuietZoneLength(slice.angle, perp.angle, marker[1].length + marker[2].length + marker[3].length);
+
+    let res = {
+      angle: perp.angle,
+      center: perp.center,
+      length: pParams.length,
+      params: pParams,
+      start: 0,
+      dir: 1,
+    };
 
     if (sliceParams.dir === pParams.dir) {
       const sliceQzStartDir = marker.type === 'start' ? pParams.dir : -pParams.dir;
@@ -349,22 +327,17 @@ adjacent = tan(a) * height / 2
       const qzStartPoint = pParams.center - qzLength * qzDir;
 
       if (sliceParams.dir === sliceQzStartDir) {
-        for (let p = qzStartPoint; p < pParams.length; p++) {
-          const i = pParams.getIndex(p, this.step);
-          paintLater.push(toPink.bind(null, this.data, i))
-        }
+        res.start = qzStartPoint;
+        res.dir = 1;
       }
       else {
-        for (let p = 0; p <= qzStartPoint; p++) {
-          const i = pParams.getIndex(p, this.step);
-          paintLater.push(toYellow.bind(null, this.data, i))
-        }
+        res.start = qzStartPoint;
+        res.dir = -1;
       }
     }
     else {
       const sliceQzStartDir = marker.type === 'start' ? 1 : -1;
       const angleDiff = Math.abs(slice.angle - perp.angle);
-      // const angleDiffDir = (slice.angle - perp.angle) / angleDiff;
 
       let qzDir;
       if (sliceParams.dir === -1) {
@@ -377,18 +350,15 @@ adjacent = tan(a) * height / 2
       const qzStartPoint = pParams.center - qzLength * qzDir;
 
       if (qzDir === 1) {
-        for (let p = qzStartPoint; p < pParams.length; p++) {
-          const i = pParams.getIndex(p, this.step);
-          paintLater.push(toBlue.bind(null, this.data, i))
-        }
+        res.start = qzStartPoint;
+        res.dir = 1;
       }
       else {
-        for (let p = 0; p <= qzStartPoint; p++) {
-          const i = pParams.getIndex(p, this.step);
-          paintLater.push(toRed.bind(null, this.data, i))
-        }
+        res.start = qzStartPoint;
+        res.dir = -1;
       }
     }
+    return res;
   }
 
   findQuietZoneLength(sAngle, pAngle, sLength) {
@@ -413,21 +383,21 @@ adjacent = tan(a) * height / 2
     return length;
   }
 
-  findPerpendicularAngle(line1, line2) {
-    const params1 = this.getIterationParams(line1.angle, line1.center.x, line1.center.y);
-    const mid1Point = Math.floor(line1.start + (line1.end - line1.start) / 2); // negative sign should work itself out
+  findPerpendicularAngle(line) {
+    const params1 = this.getIterationParams(line.angle, line.center.x, line.center.y);
+    const mid1Point = Math.floor(line.start + (line.end - line.start) / 2); // negative sign should work itself out
     const { x: x1, y: y1 } = params1.getCoordinates(mid1Point);
     // console.log('x1', x1, 'y1', y1);
 
     let perpendicular1;
-    if (line1.angle < 0) {
-      perpendicular1 = line1.angle >= -90 ? line1.angle - 90 : line1.angle + 90;
+    if (line.angle < 0) {
+      perpendicular1 = line.angle >= -90 ? line.angle - 90 : line.angle + 90;
     }
     else {
-      perpendicular1 = line1.angle < 90 ? line1.angle + 90 : line1.angle - 90;
+      perpendicular1 = line.angle < 90 ? line.angle + 90 : line.angle - 90;
     }
     // console.log('perpendicular1', Number(perpendicular1.toFixed(2)));
-    // console.log('type:', line1.type);
+    // console.log('type:', line.type);
     const midParams1 = this.getIterationParams(perpendicular1, x1, y1);
 
     return {
@@ -437,57 +407,6 @@ adjacent = tan(a) * height / 2
         y: y1,
       },
     };
-  }
-
-  drawPerpendicular(line1, line2) {
-    console.log('line1', line1);
-    console.log('line2', line2);
-
-    const params1 = this.getIterationParams(line1.angle, line1.center.x, line1.center.y);
-    const mid1Point = Math.floor(line1.start + (line1.end - line1.start) / 2); // negative sign should work itself out
-    const { x: x1, y: y1 } = params1.getCoordinates(mid1Point);
-    console.log('x1', x1, 'y1', y1);
-
-    let perpendicular1;
-    if (line1.angle < 0) {
-      perpendicular1 = line1.angle >= -90 ? line1.angle - 90 : line1.angle + 90;
-    }
-    else {
-      perpendicular1 = line1.angle < 90 ? line1.angle + 90 : line1.angle - 90;
-    }
-    console.log('perpendicular1', Number(perpendicular1.toFixed(2)));
-    console.log('type:', line1.type);
-    const midParams1 = this.getIterationParams(perpendicular1, x1, y1);
-
-    const params2 = this.getIterationParams(line2.angle, line2.center.x, line2.center.y);
-    const mid2Point = Math.floor(line2.start + (line2.end - line2.start) / 2); // negative sign should work itself out
-    const { x: x2, y: y2 } = params2.getCoordinates(mid2Point);
-    console.log('x2', x2, 'y2', y2);
-
-    let perpendicular2;
-    if (line2.angle < 0) {
-      perpendicular2 = line2.angle >= -90 ? line2.angle - 90 : line2.angle + 90;
-    }
-    else {
-      perpendicular2 = line2.angle < 90 ? line2.angle + 90 : line2.angle - 90;
-    }
-    console.log('perpendicular2', Number(perpendicular2.toFixed(2)));
-    console.log('type:', line1.type);
-    const midParams2 = this.getIterationParams(perpendicular2, x2, y2);
-
-    if (midParams1.dir === 1) {
-      for (let p = midParams1.center; p < midParams1.length; p++) {
-        const i = midParams1.getIndex(p, this.step);
-        toYellow(this.data, i);
-      }
-    }
-    else {
-      for (let p = 0; p < midParams1.center; p++) {
-        const i = midParams1.getIndex(p, this.step);
-        toPink(this.data, i);
-      }
-    }
-
   }
 
   getEndLine(marker, i, sliceParams) {
