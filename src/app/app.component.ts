@@ -162,8 +162,6 @@ adjacent = tan(a) * height / 2
     if (!gt && !lt) return;
 
     for (let a = this.angleInput.from; gt ? (a < this.angleInput.to ? true : false) : (a > this.angleInput.to ? true : false); a += this.angleInput.step) {
-
-    // for (let a = 0; a < 180; a += 4) {
       const slice = {
         angle: a,
         center: this.center,
@@ -201,49 +199,57 @@ adjacent = tan(a) * height / 2
         scans.push(slice);
       }
 
-      this.findPerpendicular(slice, paintLater);
+      this.findPerpendicular(slice);
     }
 
     const end = Date.now();
     console.log('time:', end - start);
 
-    for (let slice of scans) {
-      this.drawSlice(slice);
+    // purely for drawing lines on canvas
+    const draw = true;
+    if (draw) {
+      for (let slice of scans) {
+        this.drawSlice(slice);
 
-      for (let { line } of slice.ends) {
+        for (let { line, endLine, perp } of slice.ends) {
 
-        const params = this.getIterationParams(line.angle, line.center.x, line.center.y);
-        for (let p = Math.min(line.start, line.end); p < Math.max(line.start, line.end); p++) {
-          const i = params.getIndex(p, this.step);
-          toYellow(this.data, i);
+          const params = this.getIterationParams(line.angle, line.center.x, line.center.y);
+          for (let p = Math.min(line.start, line.end); p < Math.max(line.start, line.end); p++) {
+            const i = params.getIndex(p, this.step);
+            paintLater.push(toYellow.bind(null, this.data, i))
+          }
+
+          const paramsEnd = this.getIterationParams(endLine.angle, endLine.center.x, endLine.center.y);
+          for (let p = Math.min(endLine.start, endLine.end); p < Math.max(endLine.start, endLine.end); p++) {
+            const i = paramsEnd.getIndex(p, this.step);
+            paintLater.push(toPink.bind(null, this.data, i))
+          }
+
+          if (perp.dir === 1) {
+            for (let p = perp.start; p < perp.length; p++) {
+              const i = perp.params.getIndex(p, this.step);
+              paintLater.push(toBlue.bind(null, this.data, i))
+            }
+          }
+          else {
+            for (let p = 0; p <= perp.start; p++) {
+              const i = perp.params.getIndex(p, this.step);
+              paintLater.push(toYellow.bind(null, this.data, i))
+            }
+          }
         }
       }
 
-      // for (let {line1, line2} of slice.ends) {
-
-      //   const params1 = this.getIterationParams(line1.angle, line1.center.x, line1.center.y);
-      //   for (let p = Math.min(line1.start, line1.end); p < Math.max(line1.start, line1.end); p++) {
-      //     const i = params1.getIndex(p, this.step);
-      //     toYellow(this.data, i);
-      //   }
-
-      //   const params2 = this.getIterationParams(line2.angle, line2.center.x, line2.center.y);
-      //   for (let p = Math.min(line2.start, line2.end); p < Math.max(line2.start, line2.end); p++) {
-      //     const i = params2.getIndex(p, this.step);
-      //     toPink(this.data, i);
-      //   }
-      // }
-    }
-
-    for (let f of paintLater) {
-      f();
+      for (let f of paintLater) {
+        f();
+      }
     }
 
 
     this.ctx.putImageData(this.image, 0, 0);
   }
 
-  findPerpendicular(slice, paintLater) {
+  findPerpendicular(slice) {
     const sliceParams = this.getIterationParams(slice.angle, slice.center.x, slice.center.y);
 
     for (let marker of slice.found) {
@@ -273,27 +279,14 @@ adjacent = tan(a) * height / 2
           // There is a possiblility here that the estimated quiet zone start is off because of the direction flip
           // and instead of adding to outside line, quiet zone is added to inside line position. Not a big deal.
           const startLine = marker.type === 'start' ? line1 : line2;
+          const endLine = marker.type === 'start' ? line2 : line1;
           const perp = this.getPerpendicularParams(startLine, slice, marker);
 
           slice.ends.push({
             line: startLine,
+            endLine,
             perp,
-            // line1: marker.type === 'start' ? line1 : line2,
-            // line2: marker.type === 'start' ? line2 : line1,
           });
-
-          if (perp.dir === 1) {
-            for (let p = perp.start; p < perp.length; p++) {
-              const i = perp.params.getIndex(p, this.step);
-              paintLater.push(toBlue.bind(null, this.data, i))
-            }
-          }
-          else {
-            for (let p = 0; p <= perp.start; p++) {
-              const i = perp.params.getIndex(p, this.step);
-              paintLater.push(toYellow.bind(null, this.data, i))
-            }
-          }
         }
       }
     }
