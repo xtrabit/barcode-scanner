@@ -50,7 +50,7 @@ export class AppComponent implements OnInit, AfterViewInit{
   angleInput = {
     from: 0,
     to: 180,
-    step: 3,
+    step: 10,
   };
 
   threshold = 130;
@@ -153,7 +153,8 @@ adjacent = tan(a) * height / 2
     const start = Date.now();
 
     const scans = [];
-    const ends = [];
+    // const ends = [];
+    const paintLater = [];
 
     const gt = this.angleInput.from < this.angleInput.to && this.angleInput.step > 0;
     const lt = this.angleInput.from > this.angleInput.to && this.angleInput.step < 0;
@@ -169,6 +170,7 @@ adjacent = tan(a) * height / 2
         found: [],
         hasStart: false,
         hasEnd: false,
+        ends: [],
       };
       const tracker = {
         t: [],
@@ -199,7 +201,7 @@ adjacent = tan(a) * height / 2
         scans.push(slice);
       }
 
-      this.findLongestAngle(slice, ends);
+      this.findLongestAngle(slice, paintLater);
     }
 
     const end = Date.now();
@@ -207,20 +209,34 @@ adjacent = tan(a) * height / 2
 
     for (let slice of scans) {
       this.drawSlice(slice);
-    }
 
-    for (let end of ends) {
-      const params = this.getIterationParams(end.angle, end.center.x, end.center.y);
-      for (let p = Math.min(end.start, end.end); p < Math.max(end.start, end.end); p++) {
-        const i = params.getIndex(p, this.step);
-        toYellow(this.data, i);
+      for (let {line1, line2} of slice.ends) {
+
+        const params1 = this.getIterationParams(line1.angle, line1.center.x, line1.center.y);
+        for (let p = Math.min(line1.start, line1.end); p < Math.max(line1.start, line1.end); p++) {
+          const i = params1.getIndex(p, this.step);
+          toYellow(this.data, i);
+        }
+
+        const params2 = this.getIterationParams(line2.angle, line2.center.x, line2.center.y);
+        for (let p = Math.min(line2.start, line2.end); p < Math.max(line2.start, line2.end); p++) {
+          const i = params2.getIndex(p, this.step);
+          toPink(this.data, i);
+        }
       }
     }
+
+    for (let f of paintLater) {
+      f();
+    }
+
 
     this.ctx.putImageData(this.image, 0, 0);
   }
 
-  findLongestAngle(slice, resObj) {
+  findLongestAngle(slice, paintLater) {
+    // const paintLater = [];
+
     const sliceParams = this.getIterationParams(slice.angle, slice.center.x, slice.center.y);
 
     main:
@@ -234,7 +250,7 @@ adjacent = tan(a) * height / 2
       res1.sort((a, b) => b.length - a.length);
       if (res1.length) {
         const longest = res1[0];
-        // resObj.push(longest);
+        // ends.push(longest);
         line1 = res1[0];
       }
 
@@ -242,7 +258,7 @@ adjacent = tan(a) * height / 2
       res2.sort((a, b) => b.length - a.length);
       if (res2.length) {
         const longest = res2[0];
-        // resObj.push(longest);
+        // ends.push(longest);
         line2 = res2[0];
       }
 
@@ -252,9 +268,223 @@ adjacent = tan(a) * height / 2
         // const max = Math.max(line1.angle, line2.angle);
 
         if (diff < 1) {
-          resObj.push(line1);
-          resObj.push(line2);
+          slice.ends.push({
+            type: marker.type,
+            line1: marker.type === 'start' ? line1 : line2,
+            line2: marker.type === 'start' ? line2 : line1,
+          });
+          // ends.push(line1);
+          // ends.push(line2);
+
+          // this.drawPerpendicular(line1, line2);
+
+          // const sliceDir = sliceParams.dir;
+          const perp = this.getPerpendicularParams(line1, line2, slice, marker, paintLater);
+          // const perp = this.findPerpendicularAngle(line1, line2);
+          // const pParams = this.getIterationParams(perp.angle, perp.center.x, perp.center.y);
+          // const qzLength = this.findQuietZoneLength(slice.angle, perp.angle, marker[1].length + marker[2].length + marker[3].length);
+
+          // if (sliceParams.dir === pParams.dir) {
+          //   const sliceQzStartDir = marker.type === 'start' ? pParams.dir : -pParams.dir;
+          //   const qzDir = sliceQzStartDir * pParams.dir;
+          //   const qzStartPoint = pParams.center - qzLength * qzDir;
+
+          //   if (sliceParams.dir === sliceQzStartDir) {
+          //     for (let p = qzStartPoint; p < pParams.length; p++) {
+          //       const i = pParams.getIndex(p, this.step);
+          //       paintLater.push(toPink.bind(null, this.data, i))
+          //     }
+          //   }
+          //   else {
+          //     for (let p = 0; p <= qzStartPoint; p++) {
+          //       const i = pParams.getIndex(p, this.step);
+          //       paintLater.push(toYellow.bind(null, this.data, i))
+          //     }
+          //   }
+          // }
+          // else {
+          //   const sliceQzStartDir = marker.type === 'start' ? 1 : -1;
+          //   const angleDiff = Math.abs(slice.angle - perp.angle);
+          //   // const angleDiffDir = (slice.angle - perp.angle) / angleDiff;
+
+          //   let qzDir;
+          //   if (sliceParams.dir === -1) {
+          //     qzDir = sliceQzStartDir * pParams.dir * (angleDiff < 90 ? 1 : -1);
+          //   }
+          //   else {
+          //     qzDir = -sliceQzStartDir * pParams.dir * (angleDiff < 90 ? 1 : -1);
+
+          //   }
+          //   const qzStartPoint = pParams.center - qzLength * qzDir;
+
+          //   if (qzDir === 1) {
+          //     for (let p = qzStartPoint; p < pParams.length; p++) {
+          //       const i = pParams.getIndex(p, this.step);
+          //       paintLater.push(toBlue.bind(null, this.data, i))
+          //     }
+          //   }
+          //   else {
+          //     for (let p = 0; p <= qzStartPoint; p++) {
+          //       const i = pParams.getIndex(p, this.step);
+          //       paintLater.push(toRed.bind(null, this.data, i))
+          //     }
+          //   }
+          // }
+
         }
+      }
+    }
+  }
+
+  getPerpendicularParams(line1, line2, slice, marker, paintLater) {
+    const sliceParams = this.getIterationParams(slice.angle, slice.center.x, slice.center.y);
+
+    const perp = this.findPerpendicularAngle(line1, line2);
+    const pParams = this.getIterationParams(perp.angle, perp.center.x, perp.center.y);
+    const qzLength = this.findQuietZoneLength(slice.angle, perp.angle, marker[1].length + marker[2].length + marker[3].length);
+
+    if (sliceParams.dir === pParams.dir) {
+      const sliceQzStartDir = marker.type === 'start' ? pParams.dir : -pParams.dir;
+      const qzDir = sliceQzStartDir * pParams.dir;
+      const qzStartPoint = pParams.center - qzLength * qzDir;
+
+      if (sliceParams.dir === sliceQzStartDir) {
+        for (let p = qzStartPoint; p < pParams.length; p++) {
+          const i = pParams.getIndex(p, this.step);
+          paintLater.push(toPink.bind(null, this.data, i))
+        }
+      }
+      else {
+        for (let p = 0; p <= qzStartPoint; p++) {
+          const i = pParams.getIndex(p, this.step);
+          paintLater.push(toYellow.bind(null, this.data, i))
+        }
+      }
+    }
+    else {
+      const sliceQzStartDir = marker.type === 'start' ? 1 : -1;
+      const angleDiff = Math.abs(slice.angle - perp.angle);
+      // const angleDiffDir = (slice.angle - perp.angle) / angleDiff;
+
+      let qzDir;
+      if (sliceParams.dir === -1) {
+        qzDir = sliceQzStartDir * pParams.dir * (angleDiff < 90 ? 1 : -1);
+      }
+      else {
+        qzDir = -sliceQzStartDir * pParams.dir * (angleDiff < 90 ? 1 : -1);
+
+      }
+      const qzStartPoint = pParams.center - qzLength * qzDir;
+
+      if (qzDir === 1) {
+        for (let p = qzStartPoint; p < pParams.length; p++) {
+          const i = pParams.getIndex(p, this.step);
+          paintLater.push(toBlue.bind(null, this.data, i))
+        }
+      }
+      else {
+        for (let p = 0; p <= qzStartPoint; p++) {
+          const i = pParams.getIndex(p, this.step);
+          paintLater.push(toRed.bind(null, this.data, i))
+        }
+      }
+    }
+  }
+
+  findQuietZoneLength(sAngle, pAngle, sLength) {
+    const markerLength = this.findMarkerLength(sAngle, pAngle, sLength);
+
+    return Math.floor(markerLength * 3);
+  }
+
+  findMarkerLength(sAngle, pAngle, sLength) {
+    let angle = Math.abs(sAngle - pAngle);
+    // console.log('ANGLE CALCS', sAngle, pAngle, angle);
+    // console.log('sLength', sLength);
+
+    if (angle === 0 || angle === 180) return 0;
+    if (angle === 90) return sLength;
+    if (angle > 90) {
+      angle = 180 - angle;
+    }
+
+    const length = sLength * Math.cos(angle / this.radians);
+    // console.log('angle', angle, 'was', sLength, 'perp', length);
+    return length;
+  }
+
+  findPerpendicularAngle(line1, line2) {
+    const params1 = this.getIterationParams(line1.angle, line1.center.x, line1.center.y);
+    const mid1Point = Math.floor(line1.start + (line1.end - line1.start) / 2); // negative sign should work itself out
+    const { x: x1, y: y1 } = params1.getCoordinates(mid1Point);
+    // console.log('x1', x1, 'y1', y1);
+
+    let perpendicular1;
+    if (line1.angle < 0) {
+      perpendicular1 = line1.angle >= -90 ? line1.angle - 90 : line1.angle + 90;
+    }
+    else {
+      perpendicular1 = line1.angle < 90 ? line1.angle + 90 : line1.angle - 90;
+    }
+    // console.log('perpendicular1', Number(perpendicular1.toFixed(2)));
+    // console.log('type:', line1.type);
+    const midParams1 = this.getIterationParams(perpendicular1, x1, y1);
+
+    return {
+      angle: perpendicular1,
+      center: {
+        x: x1,
+        y: y1,
+      },
+    };
+  }
+
+  drawPerpendicular(line1, line2) {
+    console.log('line1', line1);
+    console.log('line2', line2);
+
+    const params1 = this.getIterationParams(line1.angle, line1.center.x, line1.center.y);
+    const mid1Point = Math.floor(line1.start + (line1.end - line1.start) / 2); // negative sign should work itself out
+    const { x: x1, y: y1 } = params1.getCoordinates(mid1Point);
+    console.log('x1', x1, 'y1', y1);
+
+    let perpendicular1;
+    if (line1.angle < 0) {
+      perpendicular1 = line1.angle >= -90 ? line1.angle - 90 : line1.angle + 90;
+    }
+    else {
+      perpendicular1 = line1.angle < 90 ? line1.angle + 90 : line1.angle - 90;
+    }
+    console.log('perpendicular1', Number(perpendicular1.toFixed(2)));
+    console.log('type:', line1.type);
+    const midParams1 = this.getIterationParams(perpendicular1, x1, y1);
+
+    const params2 = this.getIterationParams(line2.angle, line2.center.x, line2.center.y);
+    const mid2Point = Math.floor(line2.start + (line2.end - line2.start) / 2); // negative sign should work itself out
+    const { x: x2, y: y2 } = params2.getCoordinates(mid2Point);
+    console.log('x2', x2, 'y2', y2);
+
+    let perpendicular2;
+    if (line2.angle < 0) {
+      perpendicular2 = line2.angle >= -90 ? line2.angle - 90 : line2.angle + 90;
+    }
+    else {
+      perpendicular2 = line2.angle < 90 ? line2.angle + 90 : line2.angle - 90;
+    }
+    console.log('perpendicular2', Number(perpendicular2.toFixed(2)));
+    console.log('type:', line1.type);
+    const midParams2 = this.getIterationParams(perpendicular2, x2, y2);
+
+    if (midParams1.dir === 1) {
+      for (let p = midParams1.center; p < midParams1.length; p++) {
+        const i = midParams1.getIndex(p, this.step);
+        toYellow(this.data, i);
+      }
+    }
+    else {
+      for (let p = 0; p < midParams1.center; p++) {
+        const i = midParams1.getIndex(p, this.step);
+        toPink(this.data, i);
       }
     }
 
@@ -298,6 +528,8 @@ adjacent = tan(a) * height / 2
 
         if (length > marker[i].length * 10) {
           res.push({
+            // dir: params.dir,
+            type: marker.type,
             angle: a,
             start,
             end,
@@ -516,6 +748,7 @@ adjacent = tan(a) * height / 2
       tracker.t[0].start = tracker.t[0].start + tracker.t[0].length - Math.floor(expectedQuietZone);
 
       slice.found.push(tracker.t);
+      tracker.t.type = 'start';
       slice.hasStart = true;
       tracker.prev = val;
 
@@ -579,7 +812,7 @@ adjacent = tan(a) * height / 2
         tracker.prev = val;
         return;
       }
-
+      tracker.t.type = 'end';
       slice.found.push(tracker.t);
       slice.hasEnd = true;
 
@@ -647,13 +880,19 @@ adjacent = tan(a) * height / 2
       center: null,
       dir: null,
       type: null,
-      getIndex(i, step) {
-        const x = this.getX(i);
-        const y = this.getY(i);
+      getIndex(p, step) {
+        const x = this.getX(p);
+        const y = this.getY(p);
         const X = x * 4;
         const Y = y * step;
         return X + Y;
-      }
+      },
+      getCoordinates(p) {
+        return {
+          x: this.getX(p),
+          y: this.getY(p),
+        }
+      },
     };
 
     if (x.length >= y.length) {
@@ -661,15 +900,15 @@ adjacent = tan(a) * height / 2
       p.center = Math.abs(limits.x.start);
       p.dir = x.dir;
       p.type = 'X';
-      p.getX = function(i) {
-        const res =  this.x.start + i * this.x.dir;
+      p.getX = function(p) {
+        const res =  this.x.start + p * this.x.dir;
         // if (isNaN(res)) {
-        //   console.log('this.x.start', this.x.start, 'i', i, 'this.x.dir', this.x.dir);
+        //   console.log('this.x.start', this.x.start, 'p', p, 'this.x.dir', this.x.dir);
         // }
         return res;
       };
-      p.getY = function(i) {
-        const res =  Math.floor(this.y.start + i * this.y.step * this.y.dir);
+      p.getY = function(p) {
+        const res =  Math.floor(this.y.start + p * this.y.step * this.y.dir);
         return res;
       };
     }
@@ -678,12 +917,12 @@ adjacent = tan(a) * height / 2
       p.center = Math.abs(limits.y.start);
       p.dir = y.dir;
       p.type = 'Y';
-      p.getX = function(i) {
-        const res = Math.floor(this.x.start + i * this.x.step * this.x.dir);
+      p.getX = function(p) {
+        const res = Math.floor(this.x.start + p * this.x.step * this.x.dir);
         return res;
       };
-      p.getY = function(i) {
-        const res =  this.y.start + i * this.y.dir;
+      p.getY = function(p) {
+        const res =  this.y.start + p * this.y.dir;
         return res;
       };
     }
@@ -2190,4 +2429,10 @@ function toYellow(data, i) {
   data[i] = 255;
   data[i + 1] = 187;
   data[i + 2] = 0;
+}
+
+function toPink(data, i) {
+  data[i] = 255;
+  data[i + 1] = 0;
+  data[i + 2] = 230;
 }
