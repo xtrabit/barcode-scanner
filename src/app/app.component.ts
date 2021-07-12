@@ -270,14 +270,14 @@ adjacent = tan(a) * height / 2
   }
 
   processPerpendicular(perpObj, paintLater) {
-    console.log('PROCESS PERPENDICULAR')
+    // console.log('PROCESS PERPENDICULAR')
 
 
 
     const perp = perpObj.perp;
     const startMarker = this.findStartMarker(perp, paintLater);
     if (startMarker) {
-      console.log('START MARKER', startMarker);
+      // console.log('START MARKER', startMarker);
       if (perp.dir === 1) {
         for (let p = perp.start; p < perp.length; p++) {
           const i = perp.params.getIndex(p, this.step);
@@ -334,12 +334,12 @@ adjacent = tan(a) * height / 2
 
         res = this.processMarkerPoint(p, i, start, tracker, qzOffset);
         if (res === false) {
-          console.log('FIND MARKER LOOP 1', false);
+          // console.log('FIND MARKER LOOP 1', false);
           return null;
         }
 
         if (res && typeof res === 'object') {
-          console.log('FIND MARKER LOOP 1', res);
+          // console.log('FIND MARKER LOOP 1', res);
           return [
             res.qz,
             res.first,
@@ -361,12 +361,12 @@ adjacent = tan(a) * height / 2
 
         res = this.processMarkerPoint(p, i, start, tracker, qzOffset);
         if (res === false) {
-          console.log('FIND MARKER LOOP 1', false);
+          // console.log('FIND MARKER LOOP 1', false);
           return null;
         }
 
         if (res && typeof res === 'object') {
-          console.log('FIND MARKER LOOP 1', res);
+          // console.log('FIND MARKER LOOP 1', res);
           return [
             res.qz,
             res.first,
@@ -380,7 +380,7 @@ adjacent = tan(a) * height / 2
     }
     // just in case the loops end without return
     if (res && typeof res === 'object') {
-      console.log('FIND MARKER END', res);
+      // console.log('FIND MARKER END', res);
       return [
         res.qz,
         res.first,
