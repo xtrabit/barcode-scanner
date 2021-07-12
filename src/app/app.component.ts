@@ -277,6 +277,8 @@ adjacent = tan(a) * height / 2
     const perp = perpObj.perp;
     const startMarker = this.findStartMarker(perp, paintLater);
     if (startMarker) {
+      const markerLength = startMarker[1].length + startMarker[2].length + startMarker[3].length;
+      const bars = this.findEndMarker(perp, startMarker[3].end, markerLength);
       // console.log('START MARKER', startMarker);
       if (perp.dir === 1) {
         for (let p = perp.start; p < perp.length; p++) {
@@ -290,7 +292,24 @@ adjacent = tan(a) * height / 2
           paintLater.push(toYellow.bind(null, this.data, i))
         }
       }
-      return true;
+
+      if (bars) {
+        const endP = bars[bars.length - 1].end;
+
+        if (perp.dir === 1) {
+          for (let p = perp.start; p < endP; p++) {
+            const i = perp.params.getIndex(p, this.step);
+            paintLater.push(toRed.bind(null, this.data, i))
+          }
+        }
+        else {
+          for (let p = perp.start; p > endP; p--) {
+            const i = perp.params.getIndex(p, this.step);
+            paintLater.push(toRed.bind(null, this.data, i))
+          }
+        }
+        return true;
+      }
     }
     return false;
 
@@ -308,6 +327,103 @@ adjacent = tan(a) * height / 2
     //     paintLater.push(toYellow.bind(null, this.data, i))
     //   }
     // }
+  }
+
+  findEndMarker(perp, startP, markerLength) {
+    const bars = [];
+
+    let res: any = true;
+
+    if (perp.dir === 1) {
+
+      for (let p = startP; p < perp.length; p++) {
+        const i = perp.params.getIndex(p, this.step);
+
+        res = this.processEndMarkerPoint(p, i, startP, perp.length - 1, bars, markerLength);
+        if (Array.isArray(res)) {
+          return bars;
+        }
+      }
+    }
+    else {
+
+      for (let p = startP; p >= 0; p--) {
+        const i = perp.params.getIndex(p, this.step);
+
+        res = this.processEndMarkerPoint(p, i, startP, 0, bars, markerLength);
+        if (Array.isArray(res)) {
+          return bars;
+        }
+      }
+    }
+  }
+
+  processEndMarkerPoint(p, i, startP, endP, bars, markerLength) {
+    const unit = Math.floor(markerLength / 3);
+    const errCoeficient = this.errCoeficient;
+
+    let val = getAverage(this.data, i);
+    val = val < this.threshold ? 0 : 1;
+
+    if (p === startP) {
+      bars[0] = {
+        start: p,
+      };
+      return;
+    }
+    const lastIndex = bars.length - 1;
+    const lastBar = bars[lastIndex];
+    const currVal = lastIndex % 2 === 0 ? 1 : 0; // even index is white (1)
+
+    if (val === currVal && p !== endP) return;
+
+    lastBar.end = p;
+    lastBar.length = Math.abs(p - lastBar.start);
+
+    // if we just closed white, check if end
+    // 4 is the smallest possible combination
+    if (bars.length > 4 && currVal === 1) {
+      const marker = bars.slice(-4);
+
+      if (withinError(marker[0].length) && withinError(marker[1].length) && withinError(marker[2].length)) {
+        if (lastBar.length >= markerLength * 3 - getErr(markerLength * 3)) {
+          lastBar.length = Math.min(lastBar.length, markerLength * 3);
+          lastBar.end = lastBar.start + lastBar.length * (lastBar.end > lastBar.start ? 1 : -1);
+          return bars;
+        }
+        // see if on the edge 2 marker length are enough to find end marker
+        if (p === endP && lastBar.length >= markerLength * 2 - getErr(markerLength * 2)) {
+          return bars;
+        }
+      }
+
+    }
+
+    if (p === endP) return;
+
+    bars.push({
+      start: p,
+    });
+
+    function withinError(length) {
+      const err = getErr(unit);
+      return length >= length - err && length <= length + err;
+    }
+
+    function getErr(expectedLength) {
+      const max = 0.5;
+      const min = 0.3;
+      // need a finely controlled method here error to pixel dimension
+      let comp = errCoeficient / Math.log(expectedLength); // loose
+      // let comp = .5 / Math.log(expectedLength); // loose
+      // let comp = 0.5 / Math.log(expectedLength); // tight
+      comp = comp > max ? max : comp;
+      comp = comp < min ? min : comp;
+
+      const err = expectedLength * comp;
+      // console.log('ERROR', expectedLength, Number(comp.toFixed(2)), Number(err.toFixed(2)));
+      return err;
+    }
   }
 
   findStartMarker(perp, paintLater) {
@@ -332,7 +448,7 @@ adjacent = tan(a) * height / 2
       for (let p = start; p < perp.length; p++) {
         const i = perp.params.getIndex(p, this.step);
 
-        res = this.processMarkerPoint(p, i, start, tracker, qzOffset);
+        res = this.processStartMarkerPoint(p, i, start, tracker, qzOffset);
         if (res === false) {
           // console.log('FIND MARKER LOOP 1', false);
           return null;
@@ -359,7 +475,7 @@ adjacent = tan(a) * height / 2
       // for (let p = 0; p <= perp.start; p++) {
         const i = perp.params.getIndex(p, this.step);
 
-        res = this.processMarkerPoint(p, i, start, tracker, qzOffset);
+        res = this.processStartMarkerPoint(p, i, start, tracker, qzOffset);
         if (res === false) {
           // console.log('FIND MARKER LOOP 1', false);
           return null;
@@ -410,7 +526,8 @@ adjacent = tan(a) * height / 2
     // }
   }
 
-  processMarkerPoint(p, i, startP, tracker, expectedUnitLength) {
+  processStartMarkerPoint(p, i, startP, tracker, expectedUnitLength) {
+    // probably should do Math.floor(here)
     const unit = Math.ceil(expectedUnitLength / 3);
     const errCoeficient = this.errCoeficient;
 
@@ -501,6 +618,7 @@ adjacent = tan(a) * height / 2
       tracker.prev = val;
       tracker.third.current = false;
       tracker.third.length = length;
+      tracker.third.end = p;
       return tracker;
     }
 
