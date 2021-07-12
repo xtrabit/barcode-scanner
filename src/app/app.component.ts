@@ -191,15 +191,35 @@ adjacent = tan(a) * height / 2
           }
         }
         else {
-          this.processPoint(slice, tracker, p, i);
+          const marker = this.processPoint(slice, tracker, p, i);
+          // placing findPerpendicular() here makes it 10 times slower for some reason
+          // if (marker) {
+          //   this.findPerpendicular(slice, params, marker);
+          // }
         }
       }
 
+      // this is here only to make it easier to see what was found prior to perpendiculars,
+      // otherwise, sometimes can't see anything
       if (slice.found.length) {
         scans.push(slice);
       }
 
-      this.findPerpendicular(slice);
+      const filtered = [];
+      for (let marker of slice.found) {
+        const perp = this.findPerpendicular(slice, params, marker);
+        if (perp) {
+          const res = this.processPerpendicular(perp, paintLater);
+          if (res) {
+            filtered.push(marker);
+          }
+        }
+      }
+
+      if (filtered.length) {
+        slice.found = filtered;
+        scans.push(slice);
+      }
     }
 
     const end = Date.now();
@@ -225,18 +245,18 @@ adjacent = tan(a) * height / 2
             paintLater.push(toPink.bind(null, this.data, i))
           }
 
-          if (perp.dir === 1) {
-            for (let p = perp.start; p < perp.length; p++) {
-              const i = perp.params.getIndex(p, this.step);
-              paintLater.push(toBlue.bind(null, this.data, i))
-            }
-          }
-          else {
-            for (let p = 0; p <= perp.start; p++) {
-              const i = perp.params.getIndex(p, this.step);
-              paintLater.push(toYellow.bind(null, this.data, i))
-            }
-          }
+          // if (perp.dir === 1) {
+          //   for (let p = perp.start; p < perp.length; p++) {
+          //     const i = perp.params.getIndex(p, this.step);
+          //     paintLater.push(toBlue.bind(null, this.data, i))
+          //   }
+          // }
+          // else {
+          //   for (let p = 0; p <= perp.start; p++) {
+          //     const i = perp.params.getIndex(p, this.step);
+          //     paintLater.push(toYellow.bind(null, this.data, i))
+          //   }
+          // }
         }
       }
 
@@ -249,10 +269,267 @@ adjacent = tan(a) * height / 2
     this.ctx.putImageData(this.image, 0, 0);
   }
 
-  findPerpendicular(slice) {
-    const sliceParams = this.getIterationParams(slice.angle, slice.center.x, slice.center.y);
+  processPerpendicular(perpObj, paintLater) {
+    console.log('PROCESS PERPENDICULAR')
 
-    for (let marker of slice.found) {
+
+
+    const perp = perpObj.perp;
+    const startMarker = this.findStartMarker(perp, paintLater);
+    if (startMarker) {
+      console.log('START MARKER', startMarker);
+      if (perp.dir === 1) {
+        for (let p = perp.start; p < perp.length; p++) {
+          const i = perp.params.getIndex(p, this.step);
+          paintLater.push(toBlue.bind(null, this.data, i))
+        }
+      }
+      else {
+        for (let p = perp.start; p >= 0; p--) {
+          const i = perp.params.getIndex(p, this.step);
+          paintLater.push(toYellow.bind(null, this.data, i))
+        }
+      }
+      return true;
+    }
+    return false;
+
+
+
+    // if (perp.dir === 1) {
+    //   for (let p = perp.start; p < perp.length; p++) {
+    //     const i = perp.params.getIndex(p, this.step);
+    //     paintLater.push(toBlue.bind(null, this.data, i))
+    //   }
+    // }
+    // else {
+    //   for (let p = 0; p <= perp.start; p++) {
+    //     const i = perp.params.getIndex(p, this.step);
+    //     paintLater.push(toYellow.bind(null, this.data, i))
+    //   }
+    // }
+  }
+
+  findStartMarker(perp, paintLater) {
+    const qzOffset = Math.floor(perp.qzLength / 3); // giving two marker length to confirm quiet zone (leftover after adjustment)
+    // console.log(qzOffset);
+
+    const tracker = {
+      prev: null,
+      expectedLength: null,
+      qz: null,
+      first: null,
+      second: null,
+      third: null,
+    };
+
+    let res: any = true;
+
+    if (perp.dir === 1) {
+      const start = perp.start;
+      // const start = perp.start + qzOffset;
+
+      for (let p = start; p < perp.length; p++) {
+        const i = perp.params.getIndex(p, this.step);
+
+        res = this.processMarkerPoint(p, i, start, tracker, qzOffset);
+        if (res === false) {
+          console.log('FIND MARKER LOOP 1', false);
+          return null;
+        }
+
+        if (res && typeof res === 'object') {
+          console.log('FIND MARKER LOOP 1', res);
+          return [
+            res.qz,
+            res.first,
+            res.second,
+            res.third,
+          ];
+        }
+
+        // paintLater.push(toBlue.bind(null, this.data, i))
+      }
+    }
+    else {
+      const start = perp.start;
+      // const start = perp.start - qzOffset;
+
+      for (let p = start; p >= 0; p--) {
+      // for (let p = 0; p <= perp.start; p++) {
+        const i = perp.params.getIndex(p, this.step);
+
+        res = this.processMarkerPoint(p, i, start, tracker, qzOffset);
+        if (res === false) {
+          console.log('FIND MARKER LOOP 1', false);
+          return null;
+        }
+
+        if (res && typeof res === 'object') {
+          console.log('FIND MARKER LOOP 1', res);
+          return [
+            res.qz,
+            res.first,
+            res.second,
+            res.third,
+          ];
+        }
+
+        // paintLater.push(toYellow.bind(null, this.data, i))
+      }
+    }
+    // just in case the loops end without return
+    if (res && typeof res === 'object') {
+      console.log('FIND MARKER END', res);
+      return [
+        res.qz,
+        res.first,
+        res.second,
+        res.third,
+      ];
+    }
+
+    // if (res) {
+    //   if (perp.dir === 1) {
+    //     // const start = perp.start;
+    //     const start = perp.start + qzOffset;
+
+    //     for (let p = start; p < perp.length; p++) {
+    //       const i = perp.params.getIndex(p, this.step);
+    //       paintLater.push(toBlue.bind(null, this.data, i))
+    //     }
+    //   }
+    //   else {
+    //     const start = perp.start - qzOffset;
+
+    //     for (let p = start; p >= 0; p--) {
+    //       const i = perp.params.getIndex(p, this.step);
+    //       paintLater.push(toYellow.bind(null, this.data, i))
+    //     }
+    //   }
+    // }
+  }
+
+  processMarkerPoint(p, i, startP, tracker, expectedUnitLength) {
+    const unit = Math.ceil(expectedUnitLength / 3);
+    const errCoeficient = this.errCoeficient;
+
+    let val = getAverage(this.data, i);
+    val = val < this.threshold ? 0 : 1;
+
+    if (p === startP) {
+      tracker.prev = val;
+      tracker.qz = {
+        start: p,
+        current: true,
+      };
+      if (!val) {
+        // console.log('PP START',  'val', val);
+        return !!val;
+      }
+      return !!val;
+    }
+
+    if (tracker.qz.current) { // white, val === 1
+      const qzLength = Math.abs(startP - p);
+      if (val) {
+        const l = qzLength < expectedUnitLength * 3;
+        // console.log('PP QZ length', l);
+        return l;
+      }
+
+      if (qzLength < expectedUnitLength * 2) {
+        // console.log('PP QZ length is less than expected', qzLength, expectedUnitLength * 2, qzLength < expectedUnitLength * 2);
+        return false;
+      }
+
+      tracker.prev = val;
+      tracker.qz.current = false;
+      tracker.qz.length = qzLength;
+      // tracker.qz.length = Math.abs(p - tracker.qz.start);
+      tracker.first = {
+        start: p,
+        current: true,
+      };
+      return true;
+    }
+    if (tracker.first.current) { // black, val === 0
+      const length = Math.abs(p - tracker.first.start);
+      if (!val) {
+        // console.log('PP FIRST val', val, 'length', length, 'expected', unit - getErr(unit), length < unit + getErr(unit))
+        return length < unit + getErr(unit);
+      }
+
+      if (length < unit - getErr(unit)) {
+        // console.log('PP FIRST val', val, 'length', length, 'expected', unit - getErr(unit), length < unit - getErr(unit))
+        return false;
+      }
+
+      tracker.expectedLength = length;
+      tracker.prev = val;
+      tracker.first.current = false;
+      tracker.first.length = length;
+      tracker.second = {
+        start: p,
+        current: true,
+      };
+      return true;
+    }
+    if (tracker.second.current) { // white, val === 1
+      const length = Math.abs(p - tracker.second.start);
+      if (val) return length < tracker.expectedLength + getErr(tracker.expectedLength);
+
+      if (length < tracker.expectedLength - getErr(tracker.expectedLength)) return false;
+
+      // tracker.expectedLength = length;
+      tracker.prev = val;
+      tracker.second.current = false;
+      tracker.second.length = length;
+      tracker.third = {
+        start: p,
+        current: true,
+      };
+      return true;
+    }
+    if (tracker.third.current) { // black, val === 0
+      const length = Math.abs(p - tracker.third.start);
+      if (!val) return length < tracker.expectedLength + getErr(tracker.expectedLength);
+
+      if (length < tracker.expectedLength - getErr(tracker.expectedLength)) return false;
+
+      // tracker.expectedLength = length;
+      tracker.prev = val;
+      tracker.third.current = false;
+      tracker.third.length = length;
+      return tracker;
+    }
+
+
+    return false;
+
+
+
+    function getErr(expectedLength) {
+      const max = 0.5;
+      const min = 0.3;
+      // need a finely controlled method here error to pixel dimension
+      let comp = errCoeficient / Math.log(expectedLength); // loose
+      // let comp = .5 / Math.log(expectedLength); // loose
+      // let comp = 0.5 / Math.log(expectedLength); // tight
+      comp = comp > max ? max : comp;
+      comp = comp < min ? min : comp;
+
+      const err = expectedLength * comp;
+      // console.log('ERROR', expectedLength, Number(comp.toFixed(2)), Number(err.toFixed(2)));
+      return err;
+    }
+  }
+
+  findPerpendicular(slice, sliceParams, marker) {
+    let perpendicular = null;
+    // const sliceParams = this.getIterationParams(slice.angle, slice.center.x, slice.center.y);
+
+    // for (let marker of slice.found) {
 
       let line1 = null;
       let line2 = null;
@@ -282,14 +559,17 @@ adjacent = tan(a) * height / 2
           const endLine = marker.type === 'start' ? line2 : line1;
           const perp = this.getPerpendicularParams(startLine, slice, marker);
 
-          slice.ends.push({
+          perpendicular = {
             line: startLine,
             endLine,
             perp,
-          });
+          };
+
+          slice.ends.push(perpendicular);
         }
       }
-    }
+    // }
+    return perpendicular;
   }
 
   getPerpendicularParams(line, slice, marker) {
@@ -309,6 +589,7 @@ adjacent = tan(a) * height / 2
       angle: perp.angle,
       center: perp.center,
       length: pParams.length,
+      qzLength,
       params: pParams,
       start: 0,
       dir: 1,
@@ -671,7 +952,7 @@ adjacent = tan(a) * height / 2
       tracker.expectedLength = null;
       tracker.prev = val;
 
-      return;
+      return slice.found[slice.found.length - 1];
     }
     if (tracker.t[4] && tracker.t[4].current) { // white
       // if (val) return; // need to check every single pixel or it will run off the screen
@@ -703,7 +984,7 @@ adjacent = tan(a) * height / 2
           tracker.expectedLength = null;
           tracker.prev = val;
         }
-        return;
+        return slice.found[slice.found.length - 1];
       }
 
 
@@ -738,7 +1019,7 @@ adjacent = tan(a) * height / 2
       tracker.expectedLength = null;
       tracker.prev = val;
 
-      return;
+      return slice.found[slice.found.length - 1];
     }
   }
 
