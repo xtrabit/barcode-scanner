@@ -50,7 +50,7 @@ export class AppComponent implements OnInit, AfterViewInit{
   angleInput = {
     from: 0,
     to: 180,
-    step: 10,
+    step: 3,
   };
 
   threshold = 130;
@@ -112,6 +112,91 @@ export class AppComponent implements OnInit, AfterViewInit{
     this.ctx.putImageData(this.image, 0, 0);
   }
 
+  findThreshold() {
+    let sum = 0;
+    let count = 0;
+    let minV = Infinity;
+    let maxV = 0;
+    for (let i = this.W * 2; i < this.data.length; i += this.step) {
+      const val = getValue(this.data, i);
+      sum += val;
+      count++;
+      maxV = Math.max(maxV, val);
+      minV = Math.min(minV, val);
+    }
+    let thV = Math.floor(sum / count);
+    let aveV = Math.floor((maxV + minV) / 2);
+    // console.log('THRESHOLD V', thV, aveV);
+
+    sum = 0;
+    count = 0;
+    let minH = Infinity;
+    let maxH = 0;
+    const start = this.W * 4 * this.H / 2
+    for (let i = start; i < start + this.step; i += 4) {
+      const val = getValue(this.data, i);
+      sum += val;
+      count++;
+      maxH = Math.max(maxH, val);
+      minH = Math.min(minH, val);
+    }
+    let thH = Math.floor(sum / count);
+    let aveH = Math.floor((maxH + minH) / 2);
+    // console.log('THRESHOLD H', thH, aveH);
+
+    sum = 0;
+    count = 0;
+    let minD1 = Infinity;
+    let maxD1 = 0;
+    let angle = Math.atan(this.H / this.W) * this.radians;
+    let x = Math.floor(this.W / 2);
+    let y = Math.floor(this.H / 2);
+    let params = this.getIterationParams(angle, x, y);
+    for (let p = 0; p < params.length; p++) {
+      const i = params.getIndex(p, this.step);
+      // toRed(this.data, i);
+      const val = getValue(this.data, i);
+      sum += val;
+      count++;
+      maxD1 = Math.max(maxD1, val);
+      minD1 = Math.min(minD1, val);
+    }
+    let thD1 = Math.floor(sum / count);
+    let aveD1 = Math.floor((maxD1 + minD1) / 2);
+    // console.log('THRESHOLD D1', thD1, aveD1);
+
+    sum = 0;
+    count = 0;
+    let minD2 = Infinity;
+    let maxD2 = 0;
+    params = this.getIterationParams(-angle, x, y);
+    for (let p = 0; p < params.length; p++) {
+      const i = params.getIndex(p, this.step);
+      // toRed(this.data, i);
+      const val = getValue(this.data, i);
+      sum += val;
+      count++;
+      maxD2 = Math.max(maxD2, val);
+      minD2 = Math.min(minD2, val);
+    }
+    let thD2 = Math.floor(sum / count);
+    let aveD2 = Math.floor((maxD2 + minD2) / 2);
+    // console.log('THRESHOLD D2', thD2, aveD2);
+
+    const thAve = Math.floor((thV + thH + thD1 + thD2) / 4);
+    const minMaxAve = Math.floor((aveV + aveH + aveD1 + aveD2) / 4);
+    const aveMin = Math.floor((minV + minH + minD1 + minD2) / 4);
+    const aveMax = Math.floor((maxV + maxH + maxD1 + maxD2) / 4);
+
+    const spread = aveMax - aveMin;
+    const comp = thAve - minMaxAve;
+    let final = thAve + comp;
+    final = final > 230 ? 230 : final;
+
+    console.log('THRESHOLD', thAve, minMaxAve, 'min', aveMin, 'max', aveMax, 'th', final);
+    this.threshold = final;
+  }
+
   rIterator() {
 
     this.reloadImage();
@@ -125,6 +210,7 @@ export class AppComponent implements OnInit, AfterViewInit{
     this.data = this.image.data;
     this.step = this.W * 4;
 
+    this.findThreshold();
 
 /*
         /| ^ +
@@ -148,7 +234,7 @@ adjacent = tan(a) * height / 2
 
 */
 
-    console.log('height', this.H, 'width', this.W, 'w / 2', this.midW, 'h / 2', this.midH);
+    // console.log('height', this.H, 'width', this.W, 'w / 2', this.midW, 'h / 2', this.midH);
 
     const start = Date.now();
 
@@ -1527,7 +1613,7 @@ adjacent             H = tan(a) * W
       // this.drawCircle();
 
       this.sliderValue = 0;
-      this.angle = 0;
+      this.angle = 10;
     }
     this.originalImage = image;
     image.src = URL.createObjectURL(files[0]);
@@ -2688,7 +2774,9 @@ function getAverage(data, i) {
 }
 
 function getValue(data, i) {
-  return Math.floor((data[i] + data[i + 1] + data[i + 2]) / 3);
+  let val =  Math.floor((data[i] + data[i + 1] + data[i + 2]) / 3);
+  // don't know why this would happen
+  return !isNaN(val) ? val : 0;
 }
 
 function getCenter(image) {
