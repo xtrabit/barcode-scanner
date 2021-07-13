@@ -68,13 +68,18 @@ Y<input type="number" [(ngModel)]="center.y" placeholder="center Y">
   take slice
 </button>
 
-<div style="display: flex; height: 10px;">
+<!-- <div style="display: flex; height: 10px;">
   <span *ngFor="let s of slice; index as i" [style.backgroundColor]="s.color" style="height: 10px;" [style.width.%]="100/slice.length" title="{{i}}"></span>
 </div>
 
 <div style="display: flex; height: 10px;">
   <span *ngFor="let s of slice; index as i" [style.backgroundColor]="s.gray" style="height: 10px;" [style.width.%]="100/slice.length" title="{{i}}"></span>
+</div> -->
+
+<div style="display: flex; height: 10px;">
+  <span *ngFor="let b of bars; index as i" [style.backgroundColor]="b.val === 0 ? '#000' : '#fff'" style="height: 10px;" [style.width.%]="100 / bars.totalLength * b.length" title="{{i}}"></span>
 </div>
+
 <button type="button" (click)="rIterator()">
   radial scan
 </button>

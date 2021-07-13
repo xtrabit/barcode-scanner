@@ -1,4 +1,5 @@
 import { Component, ViewChild, ElementRef, OnInit, AfterViewInit } from '@angular/core';
+import { DecoderService } from './decoder.service';
 import test_image1 from '../assets/test_image1.js';
 
 let skipLinesConst = 20;
@@ -56,6 +57,8 @@ export class AppComponent implements OnInit, AfterViewInit{
   threshold = 130;
   errCoeficient = 1;
 
+  bars = [];
+
 
   @ViewChild('canvas') canvas: ElementRef<HTMLCanvasElement>;
   @ViewChild('canvas2') canvas2: ElementRef<HTMLCanvasElement>;
@@ -63,6 +66,8 @@ export class AppComponent implements OnInit, AfterViewInit{
   ctx2: CanvasRenderingContext2D;
   vctx: CanvasRenderingContext2D;
   vcanvas;
+
+  constructor(private decoder: DecoderService) {}
 
   ngOnInit(): void {
     // this.ctx = this.canvas.nativeElement.getContext('2d');
@@ -318,6 +323,7 @@ adjacent = tan(a) * height / 2
 
     if (!gt && !lt) return;
 
+    main:
     for (let a = this.angleInput.from; gt ? (a < this.angleInput.to ? true : false) : (a > this.angleInput.to ? true : false); a += this.angleInput.step) {
       const slice = {
         angle: a,
@@ -368,6 +374,10 @@ adjacent = tan(a) * height / 2
         if (perp) {
           const res = this.processPerpendicular(perp, paintLater);
           if (res) {
+            if (typeof res === 'string') {
+              console.log('---', res);
+              break main;
+            }
             filtered.push(marker);
           }
         }
@@ -435,8 +445,12 @@ adjacent = tan(a) * height / 2
     const startMarker = this.findStartMarker(perp, paintLater);
     if (startMarker) {
       const markerLength = startMarker[1].length + startMarker[2].length + startMarker[3].length;
-      const bars = this.findEndMarker(perp, startMarker[3].end, markerLength);
-      // console.log('START MARKER', startMarker);
+      const bars: any = this.findEndMarker(perp, startMarker[3].end, markerLength);
+      bars.totalLength = bars.reduce((acc, bar) => acc + bar.length, 0);
+      this.bars = bars;
+      const digits = this.decoder.decode(bars.slice(0, -4));
+      if (digits) return digits;
+
       if (perp.dir === 1) {
         for (let p = perp.start; p < perp.length; p++) {
           const i = perp.params.getIndex(p, this.step);
@@ -524,6 +538,7 @@ adjacent = tan(a) * height / 2
 
     if (p === startP) {
       bars[0] = {
+        val,
         start: p,
       };
       return;
@@ -559,6 +574,7 @@ adjacent = tan(a) * height / 2
     if (p === endP) return;
 
     bars.push({
+      val,
       start: p,
     });
 
