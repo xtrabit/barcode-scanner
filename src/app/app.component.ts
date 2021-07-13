@@ -113,6 +113,8 @@ export class AppComponent implements OnInit, AfterViewInit{
   }
 
   findThreshold() {
+    // pretty bad implementation
+
     let sum = 0;
     let count = 0;
     let minV = Infinity;
@@ -130,9 +132,38 @@ export class AppComponent implements OnInit, AfterViewInit{
 
     sum = 0;
     count = 0;
+    let minV1 = Infinity;
+    let maxV1 = 0;
+    for (let i = this.W; i < this.data.length; i += this.step) {
+      const val = getValue(this.data, i);
+      sum += val;
+      count++;
+      maxV1 = Math.max(maxV1, val);
+      minV1 = Math.min(minV1, val);
+    }
+    let thV1 = Math.floor(sum / count);
+    let aveV1 = Math.floor((maxV1 + minV1) / 2);
+
+    sum = 0;
+    count = 0;
+    let minV2 = Infinity;
+    let maxV2 = 0;
+    for (let i = this.W * 3; i < this.data.length; i += this.step) {
+      const val = getValue(this.data, i);
+      sum += val;
+      count++;
+      maxV2 = Math.max(maxV2, val);
+      minV2 = Math.min(minV2, val);
+    }
+    let thV2 = Math.floor(sum / count);
+    let aveV2 = Math.floor((maxV2 + minV2) / 2);
+
+
+    sum = 0;
+    count = 0;
     let minH = Infinity;
     let maxH = 0;
-    const start = this.W * 4 * this.H / 2
+    let start = this.W * 4 * this.H / 2
     for (let i = start; i < start + this.step; i += 4) {
       const val = getValue(this.data, i);
       sum += val;
@@ -143,6 +174,37 @@ export class AppComponent implements OnInit, AfterViewInit{
     let thH = Math.floor(sum / count);
     let aveH = Math.floor((maxH + minH) / 2);
     // console.log('THRESHOLD H', thH, aveH);
+
+    sum = 0;
+    count = 0;
+    let minH1 = Infinity;
+    let maxH1 = 0;
+    start = Math.floor(this.W * 4 * this.H / 3);
+    for (let i = start; i < start + this.step; i += 4) {
+      const val = getValue(this.data, i);
+      sum += val;
+      count++;
+      maxH1 = Math.max(maxH1, val);
+      minH1 = Math.min(minH1, val);
+    }
+    let thH1 = Math.floor(sum / count);
+    let aveH1 = Math.floor((maxH1 + minH1) / 2);
+
+    sum = 0;
+    count = 0;
+    let minH2 = Infinity;
+    let maxH2 = 0;
+    start = Math.floor(this.W * 4 * this.H / 3);
+    for (let i = start; i < start + this.step; i += 4) {
+      const val = getValue(this.data, i);
+      sum += val;
+      count++;
+      maxH2 = Math.max(maxH2, val);
+      minH2 = Math.min(minH2, val);
+    }
+    let thH2 = Math.floor(sum / count);
+    let aveH2 = Math.floor((maxH2 + minH2) / 2);
+
 
     sum = 0;
     count = 0;
@@ -183,21 +245,28 @@ export class AppComponent implements OnInit, AfterViewInit{
     let aveD2 = Math.floor((maxD2 + minD2) / 2);
     // console.log('THRESHOLD D2', thD2, aveD2);
 
-    const thAve = Math.floor((thV + thH + thD1 + thD2) / 4);
-    const minMaxAve = Math.floor((aveV + aveH + aveD1 + aveD2) / 4);
-    const aveMin = Math.floor((minV + minH + minD1 + minD2) / 4);
-    const aveMax = Math.floor((maxV + maxH + maxD1 + maxD2) / 4);
+    const thAve = Math.floor((thV + thV1 + thV2 + thH + thH1 + thH2 + thD1 + thD2) / 8);
+    // const thAve = Math.floor((thV + thH + thD1 + thD2) / 4);
+    const minMaxAve = Math.floor((aveV + aveV1 + aveV2 + aveH + aveH1 + aveH2 + aveD1 + aveD2) / 8);
+    // const minMaxAve = Math.floor((aveV + aveH + aveD1 + aveD2) / 4);
+    const aveMin = Math.floor((minV + minV1 + minV2 + minH + minH1 + minH2 + minD1 + minD2) / 8);
+    // const aveMin = Math.floor((minV + minH + minD1 + minD2) / 4);
+    const aveMax = Math.floor((maxV + maxV1 + maxV1 + maxH + maxH1 + maxH2 + maxD1 + maxD2) / 8);
+    // const aveMax = Math.floor((maxV + maxH + maxD1 + maxD2) / 4);
 
     const spread = aveMax - aveMin;
-    const comp = thAve - minMaxAve;
+    const comp = Math.abs(thAve - minMaxAve);
+    // const comp = thAve - minMaxAve;
     let final = thAve + comp;
     final = final > 230 ? 230 : final;
 
     console.log('THRESHOLD', thAve, minMaxAve, 'min', aveMin, 'max', aveMax, 'th', final);
-    this.threshold = final;
+    this.threshold = Math.max(thAve, minMaxAve);
+    // this.threshold = thAve;
+    // this.threshold = final;
   }
 
-  rIterator() {
+  rIterator(auto) {
 
     this.reloadImage();
 
@@ -210,7 +279,9 @@ export class AppComponent implements OnInit, AfterViewInit{
     this.data = this.image.data;
     this.step = this.W * 4;
 
-    this.findThreshold();
+    if (auto) {
+      this.findThreshold();
+    }
 
 /*
         /| ^ +
