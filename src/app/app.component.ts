@@ -446,10 +446,6 @@ adjacent = tan(a) * height / 2
     if (startMarker) {
       const markerLength = startMarker[1].length + startMarker[2].length + startMarker[3].length;
       const bars: any = this.findEndMarker(perp, startMarker[3].end, markerLength);
-      bars.totalLength = bars.reduce((acc, bar) => acc + bar.length, 0);
-      this.bars = bars;
-      const digits = this.decoder.decode(bars.slice(0, -4));
-      if (digits) return digits;
 
       if (perp.dir === 1) {
         for (let p = perp.start; p < perp.length; p++) {
@@ -465,6 +461,12 @@ adjacent = tan(a) * height / 2
       }
 
       if (bars) {
+
+        bars.totalLength = bars.reduce((acc, bar) => acc + bar.length, 0);
+        this.bars = bars;
+        const digits = this.decoder.decode(bars.slice(0, -4));
+        if (digits) return digits;
+
         const endP = bars[bars.length - 1].end;
 
         if (perp.dir === 1) {
