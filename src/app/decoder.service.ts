@@ -18,19 +18,56 @@ export class DecoderService {
     const converted = this.convertToModules(digits, mLength);
     // console.log(mLength, converted);
 
-    let res = '';
+    let res: any = [];
+    let dir = 0;
+    let parity: any = [];
+    let EAN13 = false;
 
     for (let i = 0; i < converted.length; i++) {
       const group = converted[i];
       const digit = this.getDigit(group);
-      if (typeof digit !== 'number') {
+      if (!digit) {
         console.log('FAILED TO GET DIGIT', i, group);
         return;
       }
-      res += digit;
+      res.push(digit.val);
+      if (i === 0) {
+        dir = digit.dir;
+      }
+      parity.push(digit.dir);
     }
-    console.log('DIGITS', res);
-    return res;
+    if (dir === 1) {
+      res.reverse();
+      parity.reverse();
+    }
+    res = res.join('');
+    parity = parseInt(parity.slice(0, 6).join(''), 2);
+    let valid = true;
+    if (parity !== 63 && parity !== 0) {
+      // got an EAN13
+      // if we started in reverse, need to flip the digits e.g.: 100000 => 011111
+      parity = parity > 31 ? parity ^ 63 : parity;
+      if (parity in parityEAN) {
+        EAN13 = true;
+        res = parityEAN[parity] + res;
+      }
+      else {
+        console.error('INVALID EAN13 ENCODING');
+        valid = false;
+      }
+
+    }
+    // const valid = true;
+    if (valid) {
+      valid = this.checkDigits(res);
+    }
+    // console.log(valid ? 'VALID' : 'INVALID', 'BARCODE', EAN13 ? 'EAN13' : 'UPCA', res);
+    return {
+      type: EAN13 ? 'EAN13' : 'UPCA',
+      valid,
+      value: res,
+    };
+    // return res;
   }
 
   getDigit(group) {
@@ -41,7 +78,12 @@ export class DecoderService {
       if (!['number', 'object'].includes(typeof res[digit])) break;
 
       res = res[digit];
-      if (i === group.length - 1) return res;
+      if (i === group.length - 1) {
+        return {
+          val: res,
+          dir: 0,
+        };
+      }
     }
     res = numbersF;
 
@@ -50,7 +92,12 @@ export class DecoderService {
       if (!['number', 'object'].includes(typeof res[digit])) break;
 
       res = res[digit];
-      if (i === 0) return res;
+      if (i === 0) {
+        return {
+          val: res,
+          dir: 1,
+        };
+      }
     }
 
     return null;
@@ -101,7 +148,6 @@ export class DecoderService {
   }
 
   normalizeDigit(digit, i) {
-    console.log('NORMALIZING', i);
     let sum = 0;
     for (let d of digit) {
       sum += d.length;
@@ -113,8 +159,9 @@ export class DecoderService {
       d.length *= correction;
       sum += Math.round(d.length);
     }
-    console.log('normalized', Number(digit[0].length.toFixed(2)), Number(digit[1].length.toFixed(2)), Number(digit[2].length.toFixed(2)), Number(digit[3].length.toFixed(2)));
     if (sum !== 7) {
+      console.log('NORMALIZING', i);
+      console.log('normalized', Number(digit[0].length.toFixed(2)), Number(digit[1].length.toFixed(2)), Number(digit[2].length.toFixed(2)), Number(digit[3].length.toFixed(2)));
       console.log('---', sum, digit);
 
       let min = Infinity;
@@ -170,8 +217,8 @@ export class DecoderService {
           }
         }
       }
+      console.log('corrected', Number(digit[0].length.toFixed(2)), Number(digit[1].length.toFixed(2)), Number(digit[2].length.toFixed(2)), Number(digit[3].length.toFixed(2)));
     }
-    console.log('corrected', Number(digit[0].length.toFixed(2)), Number(digit[1].length.toFixed(2)), Number(digit[2].length.toFixed(2)), Number(digit[3].length.toFixed(2)));
   }
 
   getTotalLength(bars) {
@@ -198,7 +245,32 @@ export class DecoderService {
     return digits;
   }
 
+  checkDigits(digits) {
+    const d = digits.split('').map((d) => Number(d));
+    let sum;
+    if (digits.length === 12) {
+      sum = d[0] * 3 + d[1] + d[2] * 3 + d[3] + d[4] * 3 + d[5] + d[6] * 3 + d[7] + d[8] * 3 + d[9] + d[10] * 3 + d[11];
+    }
+    else if (digits.length === 13) {
+      sum = d[0] + d[1] * 3 + d[2] + d[3] * 3 + d[4] + d[5] * 3 + d[6] + d[7] * 3 + d[8] + d[9] * 3 + d[10] + d[11] * 3 + d[12];
+    }
+    return sum % 10 === 0;
+  }
+
 }
+
+const parityEAN = {
+  0: 0,
+  11: 1,
+  13: 2,
+  14: 3,
+  19: 4,
+  25: 5,
+  28: 6,
+  21: 7,
+  22: 8,
+  26: 9,
+};
 
 const numbersF = {
   1: {

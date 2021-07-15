@@ -375,7 +375,7 @@ adjacent = tan(a) * height / 2
           const res = this.processPerpendicular(perp, paintLater);
           if (res) {
             if (typeof res === 'string') {
-              console.log('---', res);
+              // console.log('---', res);
               break main;
             }
             filtered.push(marker);
@@ -465,7 +465,19 @@ adjacent = tan(a) * height / 2
         bars.totalLength = bars.reduce((acc, bar) => acc + bar.length, 0);
         this.bars = bars;
         const digits = this.decoder.decode(bars.slice(0, -4));
-        if (digits) return digits;
+        if (digits) {
+          console.log('');
+          if (digits.valid) {
+            console.log(digits.valid ? 'VALID' : 'INVALID', 'BARCODE', digits.type, digits.value);
+          }
+          else {
+            console.error(digits.valid ? 'VALID' : 'INVALID', 'BARCODE', digits.type, digits.value);
+          }
+          console.log('');
+          if (digits.valid) {
+            return digits.value;
+          }
+        }
 
         const endP = bars[bars.length - 1].end;
 
