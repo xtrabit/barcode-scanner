@@ -110,7 +110,7 @@ export class AppComponent implements OnInit, AfterViewInit{
       const params = iterator.getIterationParams(a, this.center.x, this.center.y);
 
       for (let p = 0; p < params.length; p++) {
-        const i = params.getIndex(p, this.step);
+        const i = params.getIndex(p);
 
         if (p < 10) {
           toGreen(this.data, i);
@@ -145,6 +145,8 @@ export class AppComponent implements OnInit, AfterViewInit{
 
   findThreshold() {
     // pretty bad implementation
+
+    const iterator = new Iterator(this.W, this.H);
 
     let jumps = {};
     const startI = this.W * 2;
@@ -296,9 +298,9 @@ export class AppComponent implements OnInit, AfterViewInit{
     let angle = Math.atan(this.H / this.W) * this.radians;
     let x = Math.floor(this.W / 2);
     let y = Math.floor(this.H / 2);
-    let params = this.getIterationParams(angle, x, y);
+    let params = iterator.getIterationParams(angle, x, y);
     for (let p = 0; p < params.length; p++) {
-      const i = params.getIndex(p, this.step);
+      const i = params.getIndex(p);
       // toRed(this.data, i);
       const val = getValue(this.data, i);
       if (!(val in values)) {
@@ -318,9 +320,9 @@ export class AppComponent implements OnInit, AfterViewInit{
     count = 0;
     let minD2 = Infinity;
     let maxD2 = 0;
-    params = this.getIterationParams(-angle, x, y);
+    params = iterator.getIterationParams(-angle, x, y);
     for (let p = 0; p < params.length; p++) {
-      const i = params.getIndex(p, this.step);
+      const i = params.getIndex(p);
       // toRed(this.data, i);
       const val = getValue(this.data, i);
       if (!(val in values)) {
@@ -382,6 +384,8 @@ export class AppComponent implements OnInit, AfterViewInit{
       this.findThreshold();
     }
 
+    const iterator = new Iterator(this.W, this.H);
+
 /*
         /| ^ +
       /  |
@@ -433,10 +437,10 @@ adjacent = tan(a) * height / 2
         expectedLength: 0,
       };
 
-      const params = this.getIterationParams(a, this.center.x, this.center.y);
+      const params = iterator.getIterationParams(a, this.center.x, this.center.y);
 
       for (let p = 0; p < params.length; p++) {
-        const i = params.getIndex(p, this.step);
+        const i = params.getIndex(p);
 
         if (p === 0) {
           tracker.prev = getAverage(this.data, i) < threshold ? 0 : 1;
@@ -494,27 +498,27 @@ adjacent = tan(a) * height / 2
 
         for (let { line, endLine, perp } of slice.ends) {
 
-          const params = this.getIterationParams(line.angle, line.center.x, line.center.y);
+          const params = iterator.getIterationParams(line.angle, line.center.x, line.center.y);
           for (let p = Math.min(line.start, line.end); p < Math.max(line.start, line.end); p++) {
-            const i = params.getIndex(p, this.step);
+            const i = params.getIndex(p);
             paintLater.push(toYellow.bind(null, this.data, i))
           }
 
-          const paramsEnd = this.getIterationParams(endLine.angle, endLine.center.x, endLine.center.y);
+          const paramsEnd = iterator.getIterationParams(endLine.angle, endLine.center.x, endLine.center.y);
           for (let p = Math.min(endLine.start, endLine.end); p < Math.max(endLine.start, endLine.end); p++) {
-            const i = paramsEnd.getIndex(p, this.step);
+            const i = paramsEnd.getIndex(p);
             paintLater.push(toPink.bind(null, this.data, i))
           }
 
           // if (perp.dir === 1) {
           //   for (let p = perp.start; p < perp.length; p++) {
-          //     const i = perp.params.getIndex(p, this.step);
+          //     const i = perp.params.getIndex(p);
           //     paintLater.push(toBlue.bind(null, this.data, i))
           //   }
           // }
           // else {
           //   for (let p = 0; p <= perp.start; p++) {
-          //     const i = perp.params.getIndex(p, this.step);
+          //     const i = perp.params.getIndex(p);
           //     paintLater.push(toYellow.bind(null, this.data, i))
           //   }
           // }
@@ -543,13 +547,13 @@ adjacent = tan(a) * height / 2
 
       if (perp.dir === 1) {
         for (let p = perp.start; p < perp.length; p++) {
-          const i = perp.params.getIndex(p, this.step);
+          const i = perp.params.getIndex(p);
           paintLater.push(toBlue.bind(null, this.data, i))
         }
       }
       else {
         for (let p = perp.start; p >= 0; p--) {
-          const i = perp.params.getIndex(p, this.step);
+          const i = perp.params.getIndex(p);
           paintLater.push(toYellow.bind(null, this.data, i))
         }
       }
@@ -577,13 +581,13 @@ adjacent = tan(a) * height / 2
 
         if (perp.dir === 1) {
           for (let p = perp.start; p < endP; p++) {
-            const i = perp.params.getIndex(p, this.step);
+            const i = perp.params.getIndex(p);
             paintLater.push(toRed.bind(null, this.data, i))
           }
         }
         else {
           for (let p = perp.start; p > endP; p--) {
-            const i = perp.params.getIndex(p, this.step);
+            const i = perp.params.getIndex(p);
             paintLater.push(toRed.bind(null, this.data, i))
           }
         }
@@ -596,13 +600,13 @@ adjacent = tan(a) * height / 2
 
     // if (perp.dir === 1) {
     //   for (let p = perp.start; p < perp.length; p++) {
-    //     const i = perp.params.getIndex(p, this.step);
+    //     const i = perp.params.getIndex(p);
     //     paintLater.push(toBlue.bind(null, this.data, i))
     //   }
     // }
     // else {
     //   for (let p = 0; p <= perp.start; p++) {
-    //     const i = perp.params.getIndex(p, this.step);
+    //     const i = perp.params.getIndex(p);
     //     paintLater.push(toYellow.bind(null, this.data, i))
     //   }
     // }
@@ -616,7 +620,7 @@ adjacent = tan(a) * height / 2
     if (perp.dir === 1) {
 
       for (let p = startP; p < perp.length; p++) {
-        const i = perp.params.getIndex(p, this.step);
+        const i = perp.params.getIndex(p);
 
         res = this.processEndMarkerPoint(p, i, startP, perp.length - 1, bars, markerLength);
         if (Array.isArray(res)) {
@@ -627,7 +631,7 @@ adjacent = tan(a) * height / 2
     else {
 
       for (let p = startP; p >= 0; p--) {
-        const i = perp.params.getIndex(p, this.step);
+        const i = perp.params.getIndex(p);
 
         res = this.processEndMarkerPoint(p, i, startP, 0, bars, markerLength);
         if (Array.isArray(res)) {
@@ -727,7 +731,7 @@ adjacent = tan(a) * height / 2
       // const start = perp.start + qzOffset;
 
       for (let p = start; p < perp.length; p++) {
-        const i = perp.params.getIndex(p, this.step);
+        const i = perp.params.getIndex(p);
 
         res = this.processStartMarkerPoint(p, i, start, tracker, qzOffset);
         if (res === false) {
@@ -754,7 +758,7 @@ adjacent = tan(a) * height / 2
 
       for (let p = start; p >= 0; p--) {
       // for (let p = 0; p <= perp.start; p++) {
-        const i = perp.params.getIndex(p, this.step);
+        const i = perp.params.getIndex(p);
 
         res = this.processStartMarkerPoint(p, i, start, tracker, qzOffset);
         if (res === false) {
@@ -792,7 +796,7 @@ adjacent = tan(a) * height / 2
     //     const start = perp.start + qzOffset;
 
     //     for (let p = start; p < perp.length; p++) {
-    //       const i = perp.params.getIndex(p, this.step);
+    //       const i = perp.params.getIndex(p);
     //       paintLater.push(toBlue.bind(null, this.data, i))
     //     }
     //   }
@@ -800,7 +804,7 @@ adjacent = tan(a) * height / 2
     //     const start = perp.start - qzOffset;
 
     //     for (let p = start; p >= 0; p--) {
-    //       const i = perp.params.getIndex(p, this.step);
+    //       const i = perp.params.getIndex(p);
     //       paintLater.push(toYellow.bind(null, this.data, i))
     //     }
     //   }
@@ -978,10 +982,12 @@ adjacent = tan(a) * height / 2
     // It is possible that angles 0, 90, 180 would cause trouble. Not sure if it mill work for anything
     // other than the range between 0 - 180 with positive step.
 
-    const sliceParams = this.getIterationParams(slice.angle, slice.center.x, slice.center.y);
+    const iterator = new Iterator(this.W, this.H);
+
+    const sliceParams = iterator.getIterationParams(slice.angle, slice.center.x, slice.center.y);
 
     const perp = this.findPerpendicularAngle(line);
-    const pParams = this.getIterationParams(perp.angle, perp.center.x, perp.center.y);
+    const pParams = iterator.getIterationParams(perp.angle, perp.center.x, perp.center.y);
     const qzLength = this.findQuietZoneLength(slice.angle, perp.angle, marker[1].length + marker[2].length + marker[3].length);
 
     let res = {
@@ -1057,7 +1063,9 @@ adjacent = tan(a) * height / 2
   }
 
   findPerpendicularAngle(line) {
-    const params1 = this.getIterationParams(line.angle, line.center.x, line.center.y);
+    const iterator = new Iterator(this.W, this.H);
+
+    const params1 = iterator.getIterationParams(line.angle, line.center.x, line.center.y);
     const mid1Point = Math.floor(line.start + (line.end - line.start) / 2); // negative sign should work itself out
     const { x: x1, y: y1 } = params1.getCoordinates(mid1Point);
     // console.log('x1', x1, 'y1', y1);
@@ -1071,7 +1079,7 @@ adjacent = tan(a) * height / 2
     }
     // console.log('perpendicular1', Number(perpendicular1.toFixed(2)));
     // console.log('type:', line.type);
-    const midParams1 = this.getIterationParams(perpendicular1, x1, y1);
+    // const midParams1 = iterator.getIterationParams(perpendicular1, x1, y1);
 
     return {
       angle: perpendicular1,
@@ -1083,19 +1091,21 @@ adjacent = tan(a) * height / 2
   }
 
   getEndLine(marker, i, sliceParams) {
+    const iterator = new Iterator(this.W, this.H);
+
     const center = marker[i].start + Math.floor(marker[i].length / 2);
     const x = sliceParams.getX(center);
     const y = sliceParams.getY(center);
     const res = [];
 
     for (let a = 0; a < 180; a += .3) {
-      const params = this.getIterationParams(a, x, y);
+      const params = iterator.getIterationParams(a, x, y);
 
       let start = null;
       let end = null;
 
       for (let p = params.center - 1; p > 0; p--) {
-        const i = params.getIndex(p, this.step);
+        const i = params.getIndex(p);
         let val = getAverage(this.data, i);
         val = val < this.threshold ? 0 : 1;
 
@@ -1105,7 +1115,7 @@ adjacent = tan(a) * height / 2
         }
       }
       for (let p = params.center + 1; p < params.length; p++) {
-        const i = params.getIndex(p, this.step);
+        const i = params.getIndex(p);
         let val = getAverage(this.data, i);
         val = val < this.threshold ? 0 : 1;
 
@@ -1139,7 +1149,7 @@ adjacent = tan(a) * height / 2
       // const pointLength = 3;
       // for (let p = Math.max(params.center - pointLength, 0); p < Math.min(params.center + pointLength, params.length); p++) {
       // // for (let p = 0; p < params.length; p++) {
-      //   const i = params.getIndex(p, this.step);
+      //   const i = params.getIndex(p);
       //   toYellow(this.data, i);
       // }
     }
@@ -1155,7 +1165,8 @@ adjacent = tan(a) * height / 2
   }
 
   drawSlice(slice) {
-    const params = this.getIterationParams(slice.angle, slice.center.x, slice.center.y);
+    const iterator = new Iterator(this.W, this.H);
+    const params = iterator.getIterationParams(slice.angle, slice.center.x, slice.center.y);
 
     let colorCount = 0;
 
@@ -1175,7 +1186,7 @@ adjacent = tan(a) * height / 2
       // const head = length * percent < 3 ? 3 : Math.floor(length * percent);
 
       for (let p = start; p < end; p++) {
-        const i = params.getIndex(p, this.step);
+        const i = params.getIndex(p);
         if (slice.hasStart && slice.hasEnd) {
           toDarkGreen(this.data, i);
           // toYellow(this.data, i);
@@ -1420,284 +1431,6 @@ adjacent = tan(a) * height / 2
 
       return slice.found[slice.found.length - 1];
     }
-  }
-
-  getIterationParams(angle, cX, cY) {
-    cX = cX > this.W ? this.W : cX;
-    cX = cX < 0 ? 0 : cX;
-    cX = Math.floor(cX);
-    cY = cY > this.H ? this.H : cY;
-    cY = cY < 0 ? 0 : cY;
-    cY = Math.floor(cY);
-
-    const limits = this.getLimits(angle, cX, cY);
-
-    const x0 = cX - limits.x.start;
-    const y0 = cY - limits.y.start;
-    const xEnd = cX + limits.x.end;
-    const yEnd = cY + limits.y.end;
-
-    const xDir = x0 <= cX ? 1 : -1;
-    // xDir = x0 === 0 && cX === 0 ? 1 : xDir;
-    // xDir = x0 === cX && cX === this.W ? -1 : xDir;
-    const yDir = y0 <= cY ? 1 : -1;
-
-
-    const xLength = Math.abs(xEnd - x0);
-    const yLength = Math.abs(yEnd - y0);
-
-    const xStep = xLength / yLength;
-    const yStep = yLength / xLength;
-
-    const x = {
-      start: x0,
-      end: xEnd,
-      dir: xDir,
-      length: xLength,
-      step: xStep,
-    };
-    const y = {
-      start: y0,
-      end: yEnd,
-      dir: yDir,
-      length: yLength,
-      step: yStep,
-    };
-    const p = {
-      x,
-      y,
-      length: null,
-      getX: null,
-      getY: null,
-      center: null,
-      dir: null,
-      type: null,
-      getIndex(p, step) {
-        const x = this.getX(p);
-        const y = this.getY(p);
-        const X = x * 4;
-        const Y = y * step;
-        return X + Y;
-      },
-      getCoordinates(p) {
-        return {
-          x: this.getX(p),
-          y: this.getY(p),
-        }
-      },
-    };
-
-    if (x.length >= y.length) {
-      p.length = x.length;
-      p.center = Math.abs(limits.x.start);
-      p.dir = x.dir;
-      p.type = 'X';
-      p.getX = function(p) {
-        const res =  this.x.start + p * this.x.dir;
-        // if (isNaN(res)) {
-        //   console.log('this.x.start', this.x.start, 'p', p, 'this.x.dir', this.x.dir);
-        // }
-        return res;
-      };
-      p.getY = function(p) {
-        const res =  Math.floor(this.y.start + p * this.y.step * this.y.dir);
-        return res;
-      };
-    }
-    else {
-      p.length = y.length;
-      p.center = Math.abs(limits.y.start);
-      p.dir = y.dir;
-      p.type = 'Y';
-      p.getX = function(p) {
-        const res = Math.floor(this.x.start + p * this.x.step * this.x.dir);
-        return res;
-      };
-      p.getY = function(p) {
-        const res =  this.y.start + p * this.y.dir;
-        return res;
-      };
-    }
-
-    return p;
-  }
-
-  getLimits(angle, cX, cY) {
-/*
-        /| ^ +
-      /  |
-    /    | opposite: tan(a) = oppposite / adjacent; a = tan-1(opp / adj)
-  /a     |           tan(a) = H / W
-/________| 0         W = H / tan(a)
-adjacent             H = tan(a) * W
-                     a = atan(H / W)
-
-        90 →
-  ↑ q1  |  q2
-  0 ----o---- -180 : origin of arrow marks inclusive
-    q4  |  q3   ↓
-      ← -90
-
-*/
-    // console.log('- - - -')
-    // console.log('W  ', this.W, 'H  ', this.H);
-    // console.log('W/2', this.midW, 'H/2', this.midH);
-    // console.log('angle:', angle);
-    // console.log('inflection', this.inflection);
-    angle = angle % 360;
-    const sign = angle >= 0 ? 1 : -1;
-    if (Math.abs(angle) > 180) {
-      angle = angle - 360 * sign;
-    }
-    angle = angle === 180 ? -180 : angle;
-
-
-    let q1, q2, q3, q4 = null;
-
-    if (cX > 0 && cY > 0) {
-      q1 = {
-        width: cX,
-        height: cY,
-        inflection: Math.atan(cY / cX) * this.radians,
-        dir: 1,
-        dirX: 1,
-        dirY: 1,
-      }
-    }
-    if (cX < this.W && cY > 0) {
-      q2 = {
-        width: this.W - cX,
-        height: cY,
-        inflection: Math.atan(cY / (this.W - cX)) * this.radians,
-        dir: 1,
-        dirX: -1,
-        dirY: 1,
-      }
-    }
-    if (cX < this.W && cY < this.H) {
-      q3 = {
-        width: this.W - cX,
-        height: this.H - cY,
-        inflection: Math.atan((this.H - cY) / (this.W - cX)) * this.radians,
-        dir: 1,
-        dirX: -1,
-        dirY: -1,
-      }
-    }
-    if (cX > 0 && cY < this.H) {
-      q4 = {
-        width: cX,
-        height: this.H - cY,
-        inflection: Math.atan((this.H - cY) / cX) * this.radians,
-        dir: 1,
-        dirX: 1,
-        dirY: -1,
-      }
-    }
-
-    let startQ;
-    let qLimits;
-
-    if (0 <= angle && angle < 90) {
-      startQ = 1;
-
-      if (q1) {
-        q1.dirX = 1;
-        q1.dirY = 1;
-      }
-      if (q3) {
-        q3.dirX = 1;
-        q3.dirY = 1;
-      }
-      qLimits = this.getQLimits(q1, q3, angle);
-    }
-    else if (90 <= angle && angle < 180) {
-      startQ = 2
-
-      if (q2) {
-        q2.dirX = -1;
-        q2.dirY = 1;
-      }
-      if (q4) {
-        q4.dirX = -1;
-        q4.dirY = 1;
-      }
-      qLimits = this.getQLimits(q2, q4, 180 - angle);
-    }
-    else if (-180 <= angle && angle < -90) {
-      startQ = 3
-
-      if (q3) {
-        q3.dirX = -1;
-        q3.dirY = -1;
-      }
-      if (q1) {
-        q1.dirX = -1;
-        q1.dirY = -1;
-      }
-      qLimits = this.getQLimits(q3, q1, angle + 180);
-    }
-    else if (-90 <= angle && angle < 0) {
-      startQ = 4
-
-      if (q4) {
-        q4.dirX = 1;
-        q4.dirY = -1;
-      }
-      if (q2) {
-        q2.dirX = 1;
-        q2.dirY = -1;
-      }
-      qLimits = this.getQLimits(q4, q2, -angle);
-    }
-    else {
-      throw 'Should not be here. Invalid angle: ' + angle;
-    }
-
-    // console.log('Q', startQ, 'angle:', angle, qLimits);
-
-    return qLimits;
-  }
-
-  getQLimits(startQ, endQ, angle) {
-    let startX = 0, startY = 0, endX = 0, endY = 0;
-
-    if (startQ) {
-      if (angle < startQ.inflection) {
-        startX = startQ.width;
-        startY = Math.floor(Math.tan(angle / this.radians) * startQ.width);
-      }
-      else {
-        startX = Math.floor(startQ.height / Math.tan(angle / this.radians));
-        startY = startQ.height;
-      }
-      startX *= startQ.dirX;
-      startY *= startQ.dirY;
-    }
-    if (endQ) {
-      if (angle < endQ.inflection) {
-        endX = endQ.width;
-        endY = Math.floor(Math.tan(angle / this.radians) * endQ.width);
-      }
-      else {
-        endX = Math.floor(endQ.height / Math.tan(angle / this.radians));
-        endY = endQ.height;
-      }
-      endX *= endQ.dirX;
-      endY *= endQ.dirY;
-    }
-
-    return {
-      x: {
-        start: startX,
-        end: endX,
-      },
-      y: {
-        start: startY,
-        end: endY,
-      },
-      angle,
-    };
   }
 
   reloadImage() {
