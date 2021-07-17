@@ -1,6 +1,6 @@
 import { Component, ViewChild, ElementRef, OnInit, AfterViewInit } from '@angular/core';
 import { DecoderService } from './decoder.service';
-import test_image1 from '../assets/test_image1.js';
+import Iterator from './iterator.js';
 
 let skipLinesConst = 20;
 
@@ -89,6 +89,10 @@ export class AppComponent implements OnInit, AfterViewInit{
   }
 
   testIterator() {
+    this.reloadImage();
+
+    const iterator = new Iterator(this.ctx.canvas.width, this.ctx.canvas.height);
+
     this.H = this.ctx.canvas.height;
     this.W = this.ctx.canvas.width;
 
@@ -103,7 +107,7 @@ export class AppComponent implements OnInit, AfterViewInit{
 
     for (let a = this.angleInput.from; gt ? (a < this.angleInput.to ? true : false) : (a > this.angleInput.to ? true : false); a += this.angleInput.step) {
 
-      const params = this.getIterationParams(a, this.center.x, this.center.y);
+      const params = iterator.getIterationParams(a, this.center.x, this.center.y);
 
       for (let p = 0; p < params.length; p++) {
         const i = params.getIndex(p, this.step);
@@ -114,6 +118,7 @@ export class AppComponent implements OnInit, AfterViewInit{
         else {
           toRed(this.data, i);
         }
+        // toRed(this.data, i);
       }
 
     }
