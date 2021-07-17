@@ -80,6 +80,16 @@ Y<input type="number" [(ngModel)]="center.y" placeholder="center Y">
   <span *ngFor="let b of bars; index as i" [style.backgroundColor]="b.val === 0 ? '#000' : '#fff'" style="height: 10px;" [style.width.%]="100 / bars.totalLength * b.length" title="{{i}}"></span>
 </div>
 
+<div style="display: flex">
+  <span
+    *ngFor="let v of scanValues; index as i"
+    [style.backgroundColor]="'#000'"
+    style="height: 10px;"
+    [style.height.px]="v"
+    [style.width.%]="100 / scanValues.length"
+    title="{{i}}"></span>
+</div>
+
 <button type="button" (click)="rIterator()">
   radial scan
 </button>
@@ -88,3 +98,13 @@ Y<input type="number" [(ngModel)]="center.y" placeholder="center Y">
   radial scan auto threshold
 </button>
 
+<br>
+<button type="button" (click)="drawSample()">
+  take sample
+</button>
+<div style="display: flex; height: 10px;">
+  <span *ngFor="let s of sample; index as i" [style.backgroundColor]="s.orig" style="height: 10px;" [style.width.%]="100 / sample.length" title="{{s.val}}"></span>
+</div>
+<div style="display: flex; height: 10px;">
+  <span *ngFor="let s of sample; index as i" [style.backgroundColor]="s.th" style="height: 10px;" [style.width.%]="100 / sample.length" title="{{s.th}}"></span>
+</div>

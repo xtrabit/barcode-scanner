@@ -59,6 +59,10 @@ export class AppComponent implements OnInit, AfterViewInit{
 
   bars = [];
 
+  scanValues = [];
+
+  sample = [];
+
 
   @ViewChild('canvas') canvas: ElementRef<HTMLCanvasElement>;
   @ViewChild('canvas2') canvas2: ElementRef<HTMLCanvasElement>;
@@ -117,8 +121,51 @@ export class AppComponent implements OnInit, AfterViewInit{
     this.ctx.putImageData(this.image, 0, 0);
   }
 
+  drawSample() {
+    const slice = [];
+    for (let i = this.W * 2; i < this.data.length; i += this.step) {
+      let val = getValue(this.data, i);
+      let th = val > this.threshold ? 255 : 0;
+      slice.push({
+        val,
+        orig: '#' + val.toString(16).padStart(2, '0').repeat(3),
+        th: '#' + th.toString(16).padStart(2, '0').repeat(3),
+      });
+      toRed(this.data, i);
+    }
+    this.ctx.putImageData(this.image, 0, 0);
+    this.sample = slice;
+    console.log(this.data.length, this.step, slice);
+  }
+
   findThreshold() {
     // pretty bad implementation
+
+    let jumps = {};
+    const startI = this.W * 2;
+    let prev = getValue(this.data, startI + this.step);
+    for (let i = this.W * 2+ this.step; i < this.data.length; i += this.step) {
+      const val = getValue(this.data, i);
+
+      const jump = {
+        diff: Math.floor(Math.abs(prev - val) / 10),
+        min: Math.min(prev, val),
+        max: Math.max(prev, val),
+      };
+      if (!(jump.diff in jumps)) {
+        jumps[jump.diff] = {
+          count: 0,
+          jumps: [],
+        };
+      }
+      jumps[jump.diff].jumps.push(jump);
+      jumps[jump.diff].count++;
+      prev = val;
+    }
+    console.log('jumps', jumps);
+
+
+    let values = {};
 
     let sum = 0;
     let count = 0;
@@ -126,6 +173,10 @@ export class AppComponent implements OnInit, AfterViewInit{
     let maxV = 0;
     for (let i = this.W * 2; i < this.data.length; i += this.step) {
       const val = getValue(this.data, i);
+      if (!(val in values)) {
+        values[val] = 0;
+      }
+      values[val]++;
       sum += val;
       count++;
       maxV = Math.max(maxV, val);
@@ -133,6 +184,8 @@ export class AppComponent implements OnInit, AfterViewInit{
     }
     let thV = Math.floor(sum / count);
     let aveV = Math.floor((maxV + minV) / 2);
+
+
     // console.log('THRESHOLD V', thV, aveV);
 
     sum = 0;
@@ -141,6 +194,10 @@ export class AppComponent implements OnInit, AfterViewInit{
     let maxV1 = 0;
     for (let i = this.W; i < this.data.length; i += this.step) {
       const val = getValue(this.data, i);
+      if (!(val in values)) {
+        values[val] = 0;
+      }
+      values[val]++;
       sum += val;
       count++;
       maxV1 = Math.max(maxV1, val);
@@ -155,6 +212,10 @@ export class AppComponent implements OnInit, AfterViewInit{
     let maxV2 = 0;
     for (let i = this.W * 3; i < this.data.length; i += this.step) {
       const val = getValue(this.data, i);
+      if (!(val in values)) {
+        values[val] = 0;
+      }
+      values[val]++;
       sum += val;
       count++;
       maxV2 = Math.max(maxV2, val);
@@ -171,6 +232,10 @@ export class AppComponent implements OnInit, AfterViewInit{
     let start = this.W * 4 * this.H / 2
     for (let i = start; i < start + this.step; i += 4) {
       const val = getValue(this.data, i);
+      if (!(val in values)) {
+        values[val] = 0;
+      }
+      values[val]++;
       sum += val;
       count++;
       maxH = Math.max(maxH, val);
@@ -187,6 +252,10 @@ export class AppComponent implements OnInit, AfterViewInit{
     start = Math.floor(this.W * 4 * this.H / 3);
     for (let i = start; i < start + this.step; i += 4) {
       const val = getValue(this.data, i);
+      if (!(val in values)) {
+        values[val] = 0;
+      }
+      values[val]++;
       sum += val;
       count++;
       maxH1 = Math.max(maxH1, val);
@@ -202,6 +271,10 @@ export class AppComponent implements OnInit, AfterViewInit{
     start = Math.floor(this.W * 4 * this.H / 3);
     for (let i = start; i < start + this.step; i += 4) {
       const val = getValue(this.data, i);
+      if (!(val in values)) {
+        values[val] = 0;
+      }
+      values[val]++;
       sum += val;
       count++;
       maxH2 = Math.max(maxH2, val);
@@ -223,6 +296,10 @@ export class AppComponent implements OnInit, AfterViewInit{
       const i = params.getIndex(p, this.step);
       // toRed(this.data, i);
       const val = getValue(this.data, i);
+      if (!(val in values)) {
+        values[val] = 0;
+      }
+      values[val]++;
       sum += val;
       count++;
       maxD1 = Math.max(maxD1, val);
@@ -241,6 +318,10 @@ export class AppComponent implements OnInit, AfterViewInit{
       const i = params.getIndex(p, this.step);
       // toRed(this.data, i);
       const val = getValue(this.data, i);
+      if (!(val in values)) {
+        values[val] = 0;
+      }
+      values[val]++;
       sum += val;
       count++;
       maxD2 = Math.max(maxD2, val);
@@ -266,9 +347,17 @@ export class AppComponent implements OnInit, AfterViewInit{
     final = final > 230 ? 230 : final;
 
     console.log('THRESHOLD', thAve, minMaxAve, 'min', aveMin, 'max', aveMax, 'th', final);
-    this.threshold = Math.max(thAve, minMaxAve);
+    this.threshold = minMaxAve;
+    // this.threshold = Math.max(thAve, minMaxAve);
     // this.threshold = thAve;
     // this.threshold = final;
+
+    const valArr = Array(127).fill(0);
+    for (let [key, val] of Object.entries(values)) {
+      valArr[key] = val;
+    }
+    console.log(valArr);
+    this.scanValues = valArr;
   }
 
   rIterator(auto) {
@@ -1632,6 +1721,9 @@ adjacent             H = tan(a) * W
     // const image = this.ctx.getImageData(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
     const image = new ImageData(loaded.width, loaded.height);
     const data = image.data;
+    this.image = image;
+    this.data = data;
+    this.step = this.W * 4;
 
     for (let i = 0, r = 0; i < data.length; i += 4, r++) {
       data[i] = loaded.data[r];
@@ -1731,7 +1823,7 @@ adjacent             H = tan(a) * W
 
     for (let i = this.midW * 4; i < data.length; i += step) {
       let val = getValue(data, i);
-      val = val > threshold ? 255 : 0;
+      val = val > this.threshold ? 255 : 0;
       val = val.toString(16).padStart(2, '0');
       slice.push({
         color: '#' + getColor(i) + getColor(i + 1) + getColor(i + 2),
@@ -1778,7 +1870,7 @@ adjacent             H = tan(a) * W
   }
 
   processSlice(slice) {
-    const th = threshold;
+    const th = this.threshold;
     const err = 0.3;
     let res = [];
     let group = null;
